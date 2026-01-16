@@ -7,7 +7,10 @@
     "dev": "nodemon --watch 'src/**/*.ts' --exec ts-node src/server.ts",
     "start": "tsc && node dist/server.js",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev --name init"
+    "prisma:migrate": "prisma migrate dev --name init",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write ."
   },
   "keywords": [],
   "author": "",
@@ -26,12 +29,17 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.8",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
     "nodemon": "^3.1.11",
+    "prettier": "^3.8.0",
     "prisma": "^6.19.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.53.0"
   }
 }
