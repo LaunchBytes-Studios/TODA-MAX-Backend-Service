@@ -30,9 +30,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.8",
+    "bcrypt": "^6.0.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "nodemon": "^3.1.11",
