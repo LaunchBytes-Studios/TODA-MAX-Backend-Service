@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { supabase } from '../config/db';
+import { supabase } from '../../config/db';
 import { Request, Response } from 'express';
 
 const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
