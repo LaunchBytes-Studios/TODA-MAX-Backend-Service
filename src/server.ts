@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import patientRoutes from './routes/patient.routes.ts';
+import cors from 'cors';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,6 +9,7 @@ const PORT = process.env.PORT || 3000;
    Middleware
 --------------------------*/
 app.use(express.json()); // REQUIRED
+app.use(cors());
 
 /* -------------------------
    Health check
@@ -29,6 +31,7 @@ app.use('/patients', patientRoutes);
 /* -------------------------
    Server
 --------------------------*/
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// app.listen(PORT, () => {
+//   console.log(`Server is running on http://localhost:${PORT}`);
+// });
+app.listen(3000, '0.0.0.0', () => console.log(`Server is running on http://localhost:${PORT}`));

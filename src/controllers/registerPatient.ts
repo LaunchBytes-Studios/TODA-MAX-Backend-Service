@@ -7,10 +7,19 @@ const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const isPhone = (value: string) => /^\+?[1-9]\d{7,14}$/.test(value); // E.164-ish format
 
 export const registerPatient = async (req: Request, res: Response) => {
-  const { firstname, surname, birthday, contact, address, diagnosis, pin, registrationCode } =
+  const { firstname, surname, birthday, contact, address, diagnosis, pin, registrationCode, sex } =
     req.body ?? {};
 
-  if (!contact || !pin || !birthday || !firstname || !surname || !diagnosis || !registrationCode) {
+  if (
+    !contact ||
+    !pin ||
+    !birthday ||
+    !firstname ||
+    !surname ||
+    !diagnosis ||
+    !registrationCode ||
+    !sex
+  ) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
@@ -33,10 +42,12 @@ export const registerPatient = async (req: Request, res: Response) => {
     console.log(codeRow, codeError);
 
     if (codeError || !codeRow) {
+      console.log('Code Error: Invalid Code');
       return res.status(400).json({ error: 'Invalid registration code' });
     }
 
     if (codeRow.status === 'used') {
+      console.log('Code Error: Used Code');
       return res.status(400).json({ error: 'Registration code already used' });
     }
 
@@ -44,6 +55,11 @@ export const registerPatient = async (req: Request, res: Response) => {
       codeRow.status === 'expired' ||
       (codeRow.expires_at && new Date(codeRow.expires_at) < new Date())
     ) {
+      console.log('Code Error: Expired Code');
+      await supabase
+        .from('RegistrationCode')
+        .update({ status: 'expired' })
+        .eq('code', registrationCode);
       return res.status(400).json({ error: 'Registration code expired' });
     }
 
@@ -91,6 +107,7 @@ export const registerPatient = async (req: Request, res: Response) => {
       patient_id: userId,
       firstname,
       surname,
+      sex,
       contact,
       address,
       diagnosis,
@@ -116,6 +133,7 @@ export const registerPatient = async (req: Request, res: Response) => {
     /* -------------------------
        6. Success
     --------------------------*/
+    console.log('Successfully added new patient with id:', userId);
     return res.status(201).json({
       message: 'Patient registered successfully',
     });
