@@ -16,8 +16,9 @@ router.get('/me', authenticate, me);
 
 
 router.post('/RegistrationCode', generateRegistrationCode);
+router.post('/generate/RegistrationCode', generateRegistrationCode);
 router.post('/make-announcement', makeAnnouncement);
 router.get('/get-announcement', getAnnouncement);
-router.get('/RegistrationCode', getRegistrationCode);
+router.get('/get/RegistrationCode', getRegistrationCode);
 
 export default router;
