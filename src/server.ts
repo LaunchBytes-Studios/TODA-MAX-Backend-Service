@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import patientRoutes from './routes/patient.routes.ts';
+import eNavigatorRoutes from './routes/eNavigator.routes.ts';
 import cors from 'cors';
 
 const app = express();
@@ -21,6 +22,7 @@ app.get('/', (req: Request, res: Response) => {
 /* -------------------------
    Routes
 --------------------------*/
+app.use('/enavigator', eNavigatorRoutes);
 app.use('/patients', patientRoutes);
 
 /*
