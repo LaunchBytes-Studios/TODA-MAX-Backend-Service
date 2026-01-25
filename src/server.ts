@@ -1,5 +1,7 @@
+// server.ts
 import express, { Request, Response } from 'express';
 import patientRoutes from './routes/patient.routes.ts';
+import enavRoutes from './routes/enav.routes.ts'; // NEW
 import cors from 'cors';
 
 const app = express();
@@ -22,16 +24,11 @@ app.get('/', (req: Request, res: Response) => {
    Routes
 --------------------------*/
 app.use('/patients', patientRoutes);
-
-/*
-  This creates:
-  POST /patients/register
-*/
+app.use('/auth', enavRoutes); // NEW
 
 /* -------------------------
    Server
 --------------------------*/
-// app.listen(PORT, () => {
-//   console.log(`Server is running on http://localhost:${PORT}`);
-// });
-app.listen(3000, '0.0.0.0', () => console.log(`Server is running on http://localhost:${PORT}`));
+app.listen(3000, '0.0.0.0', () => 
+  console.log(`Server is running on http://localhost:${PORT}`)
+);
