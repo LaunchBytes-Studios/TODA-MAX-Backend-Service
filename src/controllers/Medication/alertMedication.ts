@@ -1,14 +1,7 @@
 import { supabase } from '../../config/db';
 import { Request, Response } from 'express';
+import { Medication } from '../medication/type';
 
-interface Medication {
-    name: string;
-    price: number
-    type: string;
-    stock_qty: number;
-    threshold_qty: number;
-    
-}
 
 export const alertMedication = async (req: Request, res: Response) => {
     try {

@@ -1,22 +1,21 @@
+import { UUID } from 'node:crypto';
 import { supabase } from '../../config/db';
-import { getFirstEnavId } from '../../utils/getFirstEnavId';
 import { Request, Response } from 'express';
 
 export const makeAnnouncement = async (req: Request, res: Response) => {
     const { message } = req.body;
     try {
-        let enav_id: string;
-        try {
-            enav_id = await getFirstEnavId();
-        } catch (err) {
-            return res.status(500).json({ error: "Error fetching enav_id from eNavigator table.", details: err instanceof Error ? err.message : err });
+        const enav_id = req.query.enavId as UUID;
+        if (!enav_id) {
+            return res.status(401).json({ error: "Unauthorized: enavId is required to post an announcement." });
         }
-
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
         const { data, error } = await supabase
             .from("Announcement")
             .insert([{
                 message,
-                announce_date: new Date(),
+                announce_date: now,
                 type: 'general',
                 enav_id
             }])

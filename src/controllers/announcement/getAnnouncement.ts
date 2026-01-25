@@ -2,7 +2,7 @@ import { supabase } from '../../config/db';
 import { Request, Response } from 'express';
 
 export const getAnnouncement = async (req: Request, res: Response) => {
-    // Example: filter by announce_id if provided
+    
     const announce_id = req.query.announce_id as string | undefined;
     try {
         let query = supabase
