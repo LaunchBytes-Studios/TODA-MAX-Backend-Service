@@ -2,12 +2,17 @@ import { supabase } from '../../config/db';
 import { Request, Response } from 'express';
 
 export const getRegistrationCode = async (req: Request, res: Response) => {
+    console.log('enavId from query:', req.query.enavId);
+    const enavId = req.query.enavId as string | undefined;
     const registration_code = req.query.registration_code as string | undefined;
     console.log('registration_code:', registration_code);
     try {
         let query = supabase.from("RegistrationCode").select("*");
         if (registration_code) {
             query = query.eq("code", registration_code);
+        }
+        if (enavId) {
+            query = query.eq("enav_id", enavId);
         }
         const { data, error } = await query;
         console.log('data:', data, 'error:', error);

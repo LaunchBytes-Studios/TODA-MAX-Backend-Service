@@ -6,19 +6,21 @@ import { generateRegistrationCode } from '../controllers/Registration/generateRe
 import { getRegistrationCode } from '../controllers/Registration/getRegistrationCode.ts';
 import { makeAnnouncement } from '../controllers/announcement/postAnnouncement.ts';
 import { getAnnouncement } from '../controllers/announcement/getAnnouncement.ts';
+import { alertMedication } from '../controllers/Medication/alertMedication.ts';
 
 const router = Router();
 
+//eNav auth routes
 router.post('/login', login);
 router.get('/me', authenticate, me);
 
 
-
-
-router.post('/RegistrationCode', generateRegistrationCode);
-router.post('/generate/RegistrationCode', generateRegistrationCode);
-router.post('/make-announcement', makeAnnouncement);
-router.get('/get-announcement', getAnnouncement);
-router.get('/get/RegistrationCode', getRegistrationCode);
+//eNav utitlity routes
+router.post('/RegistrationCode', authenticate, generateRegistrationCode);
+router.post('/generate/RegistrationCode', authenticate, generateRegistrationCode);
+router.post('/post/Announcement', authenticate, makeAnnouncement);
+router.get('/get/Announcement', authenticate, getAnnouncement);
+router.get('/get/RegistrationCode', authenticate, getRegistrationCode);
+router.get('/alert/Medication', authenticate, alertMedication);
 
 export default router;
