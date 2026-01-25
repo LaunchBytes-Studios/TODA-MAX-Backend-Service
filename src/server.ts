@@ -1,7 +1,7 @@
 // server.ts
 import express, { Request, Response } from 'express';
 import patientRoutes from './routes/patient.routes.ts';
-import enavRoutes from './routes/enav.routes.ts'; // NEW
+import eNavigatorRoutes from './routes/eNavigator.routes.ts';
 import cors from 'cors';
 
 const app = express();
@@ -23,9 +23,8 @@ app.get('/', (req: Request, res: Response) => {
 /* -------------------------
    Routes
 --------------------------*/
-app.use('/enavigator', enavRoutes);
+app.use('/enavigator', eNavigatorRoutes);
 app.use('/patients', patientRoutes);
-app.use('/auth', enavRoutes); // NEW
 
 /* -------------------------
    Server

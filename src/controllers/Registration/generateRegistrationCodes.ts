@@ -1,5 +1,5 @@
+import { UUID } from 'node:crypto';
 import { supabase } from '../../config/db';
-import { getFirstEnavId } from '../../utils/getFirstEnavId';
 import { Request, Response } from 'express';
 
 export const generateRegistrationCode = async (req: Request, res: Response) => {
@@ -13,11 +13,9 @@ export const generateRegistrationCode = async (req: Request, res: Response) => {
             23, 59, 59, 999
         );
 
-        let enav_id: string;
-        try {
-            enav_id = await getFirstEnavId();
-        } catch (err) {
-            return res.status(500).json({ message: "Error fetching enav_id from eNavigator table.", error: err instanceof Error ? err.message : err });
+        const enav_id = req.query.enavId as UUID;
+        if (!enav_id) {
+            return res.status(401).json({ message: "Unauthorized: enavId is required to generate a registration code." });
         }
 
         const { data, error } = await supabase
