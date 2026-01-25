@@ -55,7 +55,7 @@ export const login = async (req: Request, res: Response) => {
 
     console.log('Successful admin login for:', admin.enav_id);
     
-    const { password_hash, password: _, ...adminWithoutPassword } = admin;
+    const { password: _, ...adminWithoutPassword } = admin;
     
     return res.json({ 
       token, 

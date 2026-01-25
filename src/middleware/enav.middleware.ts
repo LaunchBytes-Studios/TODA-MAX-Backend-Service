@@ -1,19 +1,17 @@
-// src/middleware/enav.middleware.ts
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 
-// Extend Express Request type
+interface UserPayload extends JwtPayload {
+  userId: string;
+  role: string;
+  contact: string;
+}
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      user?: {
-        userId: string;
-        role: string;
-        contact: string;
-        iat?: number;
-        exp?: number;
-      };
+      user?: UserPayload;
     }
   }
 }
@@ -30,13 +28,41 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 
     const token = authHeader.substring(7);
     
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET);
     
-    req.user = decoded;
+    if (typeof decoded === 'string') {
+      return res.status(401).json({ error: 'Invalid token structure' });
+    }
+
+    const payload = decoded as JwtPayload;
+    const { userId, role, contact } = payload;
+    
+    if (!userId || !role || !contact) {
+      return res.status(401).json({ error: 'Token missing required fields' });
+    }
+
+    req.user = {
+      userId,
+      role,
+      contact,
+      iat: payload.iat,
+      exp: payload.exp,
+      ...payload
+    };
+    
     next();
     
   } catch (err) {
     console.error('Authentication error:', err);
-    return res.status(401).json({ error: 'Invalid token' });
+    
+    if (err instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    if (err instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ error: 'Token expired' });
+    }
+    
+    return res.status(401).json({ error: 'Authentication failed' });
   }
 };
