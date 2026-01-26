@@ -7,11 +7,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key';
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { contact, password } = req.body ?? {};
+    const { contact, password: inputPassword } = req.body ?? {};
 
     console.log('Trying to login admin with contact:', contact);
 
-    if (!contact || !password) {
+    if (!contact || !inputPassword) {
       return res.status(400).json({ error: 'Contact and password are required' });
     }
 
@@ -34,9 +34,9 @@ export const login = async (req: Request, res: Response) => {
     let passwordValid = false;
 
     if (typeof storedPassword === 'string' && storedPassword.startsWith('$2')) {
-      passwordValid = await bcrypt.compare(password, storedPassword);
+      passwordValid = await bcrypt.compare(inputPassword, storedPassword);
     } else {
-      passwordValid = password === storedPassword;
+      passwordValid = inputPassword === storedPassword;
     }
 
     if (!passwordValid) {
@@ -55,7 +55,7 @@ export const login = async (req: Request, res: Response) => {
 
     console.log('Successful admin login for:', admin.enav_id);
     
-    const { password: _, ...adminWithoutPassword } = admin;
+    const { password: adminPassword, ...adminWithoutPassword } = admin;
     
     return res.json({ 
       token, 
@@ -68,6 +68,14 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
+type JwtPayload = {
+  userId: string;
+  role: string;
+  contact: string;
+  iat?: number;
+  exp?: number;
+};
+
 export const me = async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
@@ -78,7 +86,7 @@ export const me = async (req: Request, res: Response) => {
 
     const token = authHeader.substring(7);
     
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
     
     return res.json({ 
       user: {

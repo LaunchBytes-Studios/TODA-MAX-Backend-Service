@@ -23,6 +23,7 @@ app.get('/', (req: Request, res: Response) => {
 /* -------------------------
    Routes
 --------------------------*/
+app.use('/enavigator', enavRoutes);
 app.use('/patients', patientRoutes);
 app.use('/auth', enavRoutes); // NEW
 
