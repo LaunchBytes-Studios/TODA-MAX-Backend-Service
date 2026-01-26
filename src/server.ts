@@ -1,16 +1,17 @@
 // server.ts
 import express, { Request, Response } from 'express';
-import patientRoutes from './routes/patient.routes.ts';
-import enavRoutes from './routes/enav.routes.ts'; // NEW
+import patientRoutes from './routes/patient.routes';
+import enavRoutes from './routes/enav.routes';
+import medicationRoutes from './routes/medication.routes'; // NEW
 import cors from 'cors';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 /* -------------------------
    Middleware
 --------------------------*/
-app.use(express.json()); // REQUIRED
+app.use(express.json());
 app.use(cors());
 
 /* -------------------------
@@ -25,11 +26,12 @@ app.get('/', (req: Request, res: Response) => {
 --------------------------*/
 app.use('/enavigator', enavRoutes);
 app.use('/patients', patientRoutes);
-app.use('/auth', enavRoutes); // NEW
+app.use('/auth', enavRoutes);
+app.use('/medications', medicationRoutes); // NEW
 
 /* -------------------------
    Server
 --------------------------*/
-app.listen(3000, '0.0.0.0', () => 
+app.listen(PORT, '0.0.0.0', () => 
   console.log(`Server is running on http://localhost:${PORT}`)
 );
