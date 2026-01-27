@@ -25,6 +25,8 @@ export const createMedication = async (req: Request, res: Response) => {
       type: req.body.type || '',
       stock_qty: parseInt(req.body.stock_qty) || 0,
       threshold_qty: parseInt(req.body.threshold_qty) || 10,
+      description: req.body.description ?? null,
+      dosage: req.body.dosage ? parseInt(req.body.dosage) : 0,
       enav_id: req.body.enav_id || null
     };
     
@@ -123,7 +125,9 @@ export const updateMedication = async (req: Request, res: Response) => {
     if (req.body.stock_qty !== undefined) updateData.stock_qty = parseInt(req.body.stock_qty);
     if (req.body.threshold_qty !== undefined) updateData.threshold_qty = parseInt(req.body.threshold_qty);
     if (req.body.enav_id !== undefined) updateData.enav_id = req.body.enav_id;
-    
+    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.dosage !== undefined) updateData.dosage = parseInt(req.body.dosage);
+
     const updatedMedication = await updateMedicationService(id, updateData);
     
     if (!updatedMedication) {
