@@ -6,7 +6,7 @@ import {
   FilterOptions,
   PaginatedResponse,
   MedicationStats
-} from '../controllers/medication/medicationtype';
+} from '../controllers/Medication/medicationtype';
 
 // Create new medication
 export const createMedicationService = async (data: CreateMedicationDTO): Promise<Medication> => {
@@ -18,6 +18,8 @@ export const createMedicationService = async (data: CreateMedicationDTO): Promis
       type: data.type,
       stock_qty: data.stock_qty,
       threshold_qty: data.threshold_qty || 10,
+      dosage: data.dosage,
+      description: data.description ?? null,
       enav_id: data.enav_id || null,
     }])
     .select()
