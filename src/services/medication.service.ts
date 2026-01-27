@@ -6,7 +6,7 @@ import {
   FilterOptions,
   PaginatedResponse,
   MedicationStats
-} from '../controllers/Medication/medicationtype';
+} from '../controllers/medication/medicationtype';
 
 // Create new medication
 export const createMedicationService = async (data: CreateMedicationDTO): Promise<Medication> => {
