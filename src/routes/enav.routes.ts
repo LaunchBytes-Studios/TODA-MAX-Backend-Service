@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/enav.middleware';
 
 import { generateRegistrationCode } from '../controllers/registration/generateRegistrationCodes.controller.ts';
 import { getRegistrationCode } from '../controllers/registration/getRegistrationCode.controller.ts';
+import { deleteRegistrationCode } from '../controllers/registration/deleteRegistration.controller.ts';
 import { makeAnnouncement } from '../controllers/announcement/postAnnouncement.controller.ts';
 import { getAnnouncement } from '../controllers/announcement/getAnnouncement.controller.ts';
 import { alertMedication } from '../controllers/medication/alertMedication.controller.ts';
@@ -21,6 +22,7 @@ router.post('/generate/registrationCode', authenticate, generateRegistrationCode
 router.post('/post/announcement', authenticate, makeAnnouncement);
 router.get('/get/announcement', authenticate, getAnnouncement);
 router.get('/get/registrationCode', authenticate, getRegistrationCode);
+router.delete('/delete/registrationCode', authenticate, deleteRegistrationCode);
 router.get('/alert/medication', authenticate, alertMedication);
 
 export default router;
