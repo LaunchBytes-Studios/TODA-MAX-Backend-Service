@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { supabase } from '../../config/db';
 
-// Deletes a registration code by numeric `code_id` provided via query param `codeId`
+// Deletes/updates registration codes based on the following logic:
+//   - Mark codes older than 1 day as status 'expired' (excluding 'used').
+//   - Delete codes older than 30 days (excluding 'used').
 export const deleteRegistrationCode = async (req: Request, res: Response) => {
 	try {
 		const codeIdParam = req.query.codeId as string | undefined;
@@ -28,19 +30,35 @@ export const deleteRegistrationCode = async (req: Request, res: Response) => {
 			return res.status(200).json({ success: true, codeId });
 		}
 
-		// No codeId provided: bulk delete all expired codes but do NOT delete 'used'
-		const nowIso = new Date().toISOString();
-		const { error } = await supabase
-			.from('RegistrationCode')
-			.delete()
-			.lte('expires_at', nowIso)
-			.neq('status', 'used');
+		// Bulk maintenance: expire >1 day old, delete >30 days old (do not touch 'used')
+		const now = Date.now();
+		const oneDayAgoIso = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+		const thirtyDaysAgoIso = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-		if (error) {
-			return res.status(500).json({ message: 'Failed to delete expired registration codes.', error });
+		// 1) Mark as expired: created_at <= oneDayAgo AND status is not 'used' or already 'expired'
+		const { error: updateError } = await supabase
+			.from('RegistrationCode')
+			.update({ status: 'expired' })
+			.lte('created_at', oneDayAgoIso)
+			.neq('status', 'used')
+			.neq('status', 'expired');
+
+		if (updateError) {
+			return res.status(500).json({ message: 'Failed to update stale registration codes to expired.', error: updateError });
 		}
 
-		return res.status(200).json({ success: true, mode: 'bulk-expired' });
+		// 2) Delete very old: created_at <= thirtyDaysAgo AND status is not 'used'
+		const { error: deleteError } = await supabase
+			.from('RegistrationCode')
+			.delete()
+			.lte('created_at', thirtyDaysAgoIso)
+			.neq('status', 'used');
+
+		if (deleteError) {
+			return res.status(500).json({ message: 'Failed to delete very old registration codes.', error: deleteError });
+		}
+
+		return res.status(200).json({ success: true, mode: 'maintenance' });
 	} catch (err) {
 		return res.status(500).json({ message: 'Server error.', error: err });
 	}
