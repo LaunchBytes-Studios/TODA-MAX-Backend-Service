@@ -1,0 +1,54 @@
+import { Request, Response } from 'express';
+import { supabase } from '../../config/db';
+
+// Maintenance: expire by expires_at < now (excluding 'used'),
+// and delete records older than 30 days (excluding 'used').
+export const maintenanceRegistrationCode = async (req: Request, res: Response) => {
+  try {
+    const confirm = (req.query.confirm as string | undefined)?.toLowerCase();
+
+    if (confirm !== 'true') {
+      return res.status(400).json({
+        message: "Maintenance requires explicit confirmation. Provide '?confirm=true'.",
+      });
+    }
+
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
+    const thirtyDaysAgoIso = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    // 1) Mark as expired: expires_at < now AND status is not 'used' or already 'expired'
+    const { data: expiredData, error: updateError } = await supabase
+      .from('RegistrationCode')
+      .update({ status: 'expired' })
+      .lt('expires_at', nowIso)
+      .neq('status', 'used')
+      .neq('status', 'expired')
+      .select();
+
+    if (updateError) {
+      return res.status(500).json({ message: 'Failed to expire old registration codes.', error: updateError });
+    }
+
+    // 2) Delete very old: created_at <= thirtyDaysAgo AND status is not 'used'
+    const { data: deletedData, error: deleteError } = await supabase
+      .from('RegistrationCode')
+      .delete()
+      .lte('created_at', thirtyDaysAgoIso)
+      .neq('status', 'used')
+      .select();
+
+    if (deleteError) {
+      return res.status(500).json({ message: 'Failed to delete very old registration codes.', error: deleteError });
+    }
+
+    return res.status(200).json({
+      success: true,
+      expiredCount: Array.isArray(expiredData) ? expiredData.length : 0,
+      deletedCount: Array.isArray(deletedData) ? deletedData.length : 0,
+      performedAt: nowIso,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error.', error: err });
+  }
+};
