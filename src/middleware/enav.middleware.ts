@@ -66,3 +66,20 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     return res.status(401).json({ error: 'Authentication failed' });
   }
 };
+
+export const authorizeAdmin = (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    next();
+  } catch (err) {
+    console.error('Authorization error:', err);
+    return res.status(403).json({ error: 'Authorization failed' });
+  }
+};
