@@ -39,7 +39,7 @@ export const maintenanceRegistrationCode = async (req: Request, res: Response) =
 
     console.log('[MAINTENANCE] Deleting codes with created_at <=', thirtyDaysAgoIso);
 
-    // 2) Delete very old: created_at <= thirtyDaysAgo AND status is not 'used'
+    // 2) Delete very old codes that are 'expired' (used codes are preserved for audit purposes).
     const { data: deletedData, error: deleteError } = await supabase
       .from('RegistrationCode')
       .delete()
