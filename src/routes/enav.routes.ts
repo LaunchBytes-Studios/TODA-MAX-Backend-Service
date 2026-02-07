@@ -15,14 +15,16 @@ const router = Router();
 router.post('/login', login);
 router.get('/me', authenticate, me);
 
+//eNav utility routes - Registration Codes
+router.post('/registrationCodes/generate', authenticate, generateRegistrationCode);
+router.get('/registrationCodes', authenticate, getRegistrationCode);
+router.post('/registrationCodes/maintenance', authenticate, maintenanceRegistrationCode);
 
-//eNav utitlity routes
-router.post('/registrationCode', authenticate, generateRegistrationCode);
-router.post('/generate/registrationCode', authenticate, generateRegistrationCode);
-router.post('/post/announcement', authenticate, makeAnnouncement);
-router.get('/get/announcement', authenticate, getAnnouncement);
-router.get('/get/registrationCode', authenticate, getRegistrationCode);
-router.post('/maintenance/registrationCode', authenticate, maintenanceRegistrationCode);
-router.get('/alert/medication', authenticate, alertMedication);
+//eNav utility routes - Announcements
+router.post('/announcements', authenticate, makeAnnouncement);
+router.get('/announcements', authenticate, getAnnouncement);
+
+//eNav utility routes - Medications
+router.get('/medications/alerts', authenticate, alertMedication);
 
 export default router;
