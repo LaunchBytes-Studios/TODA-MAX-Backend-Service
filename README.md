@@ -55,7 +55,7 @@ TODA MAX Backend Service is the core API service that powers the TODA MAX applic
 │   ├── config/           # Configuration files
 │   ├── controllers/      # Request handlers
 │   ├── middleware/       # Express middleware
-│   ├── prisma/          # Database schema 
+│   ├── prisma/          # Database schema
 │   ├── routes/          # API route definitions
 │   ├── services/        # Business logic
 │   ├── utils/           # Utility functions
