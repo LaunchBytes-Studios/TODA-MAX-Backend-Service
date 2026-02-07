@@ -26,7 +26,7 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const storedPassword = admin.password_hash;
-    
+
     if (!storedPassword) {
       return res.status(500).json({ error: 'Account configuration error' });
     }
@@ -38,28 +38,27 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const token = jwt.sign(
-      { 
+      {
         userId: admin.enav_id,
         role: 'admin',
-        contact: admin.contact
-      }, 
-      JWT_SECRET, 
-      { expiresIn: '3d' }
+        contact: admin.contact,
+      },
+      JWT_SECRET,
+      { expiresIn: '3d' },
     );
 
     console.log('Successful admin login for:', admin.enav_id);
-    
+
     const adminWithoutPassword = {
       enav_id: admin.enav_id,
       name: admin.name,
       contact: admin.contact,
     };
-    
-    return res.json({ 
-      token, 
-      user: adminWithoutPassword 
-    });
 
+    return res.json({
+      token,
+      user: adminWithoutPassword,
+    });
   } catch (err) {
     console.error('Admin login error:', err);
     return res.status(500).json({ error: 'Server error' });
@@ -77,23 +76,22 @@ type JwtPayload = {
 export const me = async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'No token provided' });
     }
 
     const token = authHeader.substring(7);
-    
+
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    
-    return res.json({ 
+
+    return res.json({
       user: {
         userId: decoded.userId,
         role: decoded.role,
-        contact: decoded.contact
-      }
+        contact: decoded.contact,
+      },
     });
-    
   } catch (err) {
     console.error('Me endpoint error:', err);
     return res.status(401).json({ error: 'Invalid token' });

@@ -12,12 +12,10 @@ export const generateRegistrationCode = async (req: Request, res: Response) => {
     try {
       enav_id = await getFirstEnavId();
     } catch (err) {
-      return res
-        .status(500)
-        .json({
-          message: 'Error fetching enav_id from eNavigator table.',
-          error: err instanceof Error ? err.message : err,
-        });
+      return res.status(500).json({
+        message: 'Error fetching enav_id from eNavigator table.',
+        error: err instanceof Error ? err.message : err,
+      });
     }
 
     const { data, error } = await supabase
