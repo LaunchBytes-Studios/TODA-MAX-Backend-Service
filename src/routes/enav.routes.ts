@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/enav.middleware';
 
 import { generateRegistrationCode } from '../controllers/registration/generateRegistrationCodes.controller.ts';
 import { getRegistrationCode } from '../controllers/registration/getRegistrationCode.controller.ts';
+import { maintenanceRegistrationCode } from '../controllers/registration/maintenanceRegistration.controller.ts';
 import { makeAnnouncement } from '../controllers/announcement/postAnnouncement.controller.ts';
 import { getAnnouncement } from '../controllers/announcement/getAnnouncement.controller.ts';
 import { alertMedication } from '../controllers/medication/alertMedication.controller.ts';
@@ -14,13 +15,16 @@ const router = Router();
 router.post('/login', login);
 router.get('/me', authenticate, me);
 
+//eNav utility routes - Registration Codes
+router.post('/registrationCodes/generate', authenticate, generateRegistrationCode);
+router.get('/registrationCodes', authenticate, getRegistrationCode);
+router.post('/registrationCodes/maintenance', authenticate, maintenanceRegistrationCode);
 
-//eNav utitlity routes
-router.post('/registrationCode', authenticate, generateRegistrationCode);
-router.post('/generate/registrationCode', authenticate, generateRegistrationCode);
-router.post('/post/announcement', authenticate, makeAnnouncement);
-router.get('/get/announcement', authenticate, getAnnouncement);
-router.get('/get/registrationCode', authenticate, getRegistrationCode);
-router.get('/alert/medication', authenticate, alertMedication);
+//eNav utility routes - Announcements
+router.post('/announcements', authenticate, makeAnnouncement);
+router.get('/announcements', authenticate, getAnnouncement);
+
+//eNav utility routes - Medications
+router.get('/medications/alerts', authenticate, alertMedication);
 
 export default router;

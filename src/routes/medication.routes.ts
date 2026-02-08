@@ -8,7 +8,7 @@ import {
   updateMedicationStock,
   getMedicationStats,
   searchMedications
-} from '../controllers/Medication/medication.controller';
+} from '../controllers/medication/medication.controller';
 
 const router = express.Router();
 router.get('/', getAllMedications);
