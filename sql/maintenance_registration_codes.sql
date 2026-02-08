@@ -3,7 +3,7 @@
 --
 -- DEPLOYMENT STATUS: ✅ Applied to Supabase database
 -- CREATED: 2026-02-08
--- USAGE: Called via supabase.rpc('maintenance_registration_codes', { current_time, cleanup_threshold })
+-- USAGE: Called via supabase.rpc('maintenance_registration_codes', { p_current_time, p_cleanup_threshold })
 
 CREATE OR REPLACE FUNCTION maintenance_registration_codes(
     p_current_time TIMESTAMPTZ,
