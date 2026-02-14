@@ -16,6 +16,7 @@ export const updatePin = async (req: Request, res: Response) => {
     if (error) return res.status(400).json({ error: error.message });
     res.json({ message: 'PIN updated successfully' });
   } catch (err) {
+    console.error('Avatar Update Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
