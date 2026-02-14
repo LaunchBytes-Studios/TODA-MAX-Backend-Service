@@ -14,7 +14,7 @@ const router = Router();
 
 router.post('/register', registerPatient);
 router.post('/login', loginPatient);
-router.patch('/:id', upload.single('avatar'), updatePatientProfile);
+router.patch('/:id/avatar', upload.single('avatar'), updatePatientProfile);
 router.patch('/:id/pin', updatePin);
 
 export default router;
