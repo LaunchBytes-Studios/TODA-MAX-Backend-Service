@@ -15,6 +15,7 @@ const router = Router();
 router.post('/login', login);
 router.get('/me', authenticate, me);
 
+
 //eNav utitlity routes
 router.post('/registrationCode', authenticate, generateRegistrationCode);
 router.post('/generate/registrationCode', authenticate, generateRegistrationCode);
