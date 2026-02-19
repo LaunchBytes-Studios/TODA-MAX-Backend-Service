@@ -1,27 +1,29 @@
 import { supabase } from '../config/db';
-import { 
-  Medication, 
-  CreateMedicationDTO, 
+import {
+  Medication,
+  CreateMedicationDTO,
   UpdateMedicationDTO,
   FilterOptions,
   PaginatedResponse,
-  MedicationStats
+  MedicationStats,
 } from '../controllers/medication/medicationtype';
 
 // Create new medication
 export const createMedicationService = async (data: CreateMedicationDTO): Promise<Medication> => {
   const { data: medication, error } = await supabase
     .from('Medication')
-    .insert([{
-      name: data.name,
-      price: data.price,
-      type: data.type,
-      stock_qty: data.stock_qty,
-      threshold_qty: data.threshold_qty || 10,
-      dosage: data.dosage,
-      description: data.description ?? null,
-      enav_id: data.enav_id || null,
-    }])
+    .insert([
+      {
+        name: data.name,
+        price: data.price,
+        type: data.type,
+        stock_qty: data.stock_qty,
+        threshold_qty: data.threshold_qty || 10,
+        dosage: data.dosage,
+        description: data.description ?? null,
+        enav_id: data.enav_id || null,
+      },
+    ])
     .select()
     .single();
 
@@ -33,12 +35,12 @@ export const createMedicationService = async (data: CreateMedicationDTO): Promis
 };
 
 // FIXED: Return type should be PaginatedResponse (not PaginatedResponse<Medication>)
-export const getAllMedicationsService = async (filters: FilterOptions): Promise<PaginatedResponse> => {
+export const getAllMedicationsService = async (
+  filters: FilterOptions,
+): Promise<PaginatedResponse> => {
   console.log('🚀 getAllMedicationsService called with filters:', filters);
-  
-  let query = supabase
-    .from('Medication')
-    .select('*', { count: 'exact' });
+
+  let query = supabase.from('Medication').select('*', { count: 'exact' });
 
   console.log('📊 Initial query built');
 
@@ -58,9 +60,9 @@ export const getAllMedicationsService = async (filters: FilterOptions): Promise<
   }
 
   query = query.order('name', { ascending: true });
-  
+
   const page = filters.page || 1;
-  const limit = filters.limit || 100; 
+  const limit = filters.limit || 100;
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
@@ -73,20 +75,20 @@ export const getAllMedicationsService = async (filters: FilterOptions): Promise<
   console.log('✅ Query executed');
   console.log('📦 Data received:', medications);
   console.log('🔢 Count:', count);
-  
+
   if (error) {
     console.error('❌ Database error:', error);
     throw new Error(`Failed to retrieve medications: ${error.message}`);
   }
 
   console.log('🎉 Successfully retrieved medications');
-  
+
   return {
     medications: medications || [],
     total: count || 0,
     page,
     limit,
-    totalPages: Math.ceil((count || 0) / limit)
+    totalPages: Math.ceil((count || 0) / limit),
   };
 };
 
@@ -98,7 +100,7 @@ export const getMedicationByIdService = async (id: number): Promise<Medication |
     .single();
 
   if (error) {
-    if (error.code === 'PGRST116') { 
+    if (error.code === 'PGRST116') {
       return null;
     }
     throw new Error(`Failed to retrieve medication: ${error.message}`);
@@ -107,7 +109,10 @@ export const getMedicationByIdService = async (id: number): Promise<Medication |
   return medication;
 };
 
-export const updateMedicationService = async (id: number, data: UpdateMedicationDTO): Promise<Medication | null> => {
+export const updateMedicationService = async (
+  id: number,
+  data: UpdateMedicationDTO,
+): Promise<Medication | null> => {
   const { data: medication, error } = await supabase
     .from('Medication')
     .update(data)
@@ -116,7 +121,7 @@ export const updateMedicationService = async (id: number, data: UpdateMedication
     .single();
 
   if (error) {
-    if (error.code === 'PGRST116') { 
+    if (error.code === 'PGRST116') {
       return null;
     }
     throw new Error(`Failed to update medication: ${error.message}`);
@@ -126,13 +131,10 @@ export const updateMedicationService = async (id: number, data: UpdateMedication
 };
 
 export const deleteMedicationService = async (id: number): Promise<boolean> => {
-  const { error } = await supabase
-    .from('Medication')
-    .delete()
-    .eq('medication_id', id);
+  const { error } = await supabase.from('Medication').delete().eq('medication_id', id);
 
   if (error) {
-    if (error.code === 'PGRST116') { 
+    if (error.code === 'PGRST116') {
       return false;
     }
     throw new Error(`Failed to delete medication: ${error.message}`);
@@ -141,7 +143,10 @@ export const deleteMedicationService = async (id: number): Promise<boolean> => {
   return true;
 };
 
-export const updateMedicationStockService = async (id: number, stock_qty: number): Promise<Medication | null> => {
+export const updateMedicationStockService = async (
+  id: number,
+  stock_qty: number,
+): Promise<Medication | null> => {
   const { data: medication, error } = await supabase
     .from('Medication')
     .update({ stock_qty })
@@ -172,14 +177,14 @@ export const getMedicationStatsService = async (): Promise<MedicationStats> => {
     let lowStock = 0;
     let outOfStock = 0;
     let totalStock = 0;
-    
-    medications?.forEach(med => {
+
+    medications?.forEach((med) => {
       totalStock += med.stock_qty;
-      
+
       if (med.stock_qty === 0) {
         outOfStock++;
       }
-      
+
       const threshold = med.threshold_qty || 10;
       if (med.stock_qty <= threshold) {
         lowStock++;
@@ -190,9 +195,9 @@ export const getMedicationStatsService = async (): Promise<MedicationStats> => {
       total: medications?.length || 0,
       lowStock,
       outOfStock,
-      totalStock
+      totalStock,
     };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     throw new Error(`Failed to get statistics: ${error.message}`);
   }

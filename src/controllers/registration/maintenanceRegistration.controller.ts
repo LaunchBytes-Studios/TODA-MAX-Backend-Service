@@ -21,7 +21,9 @@ export const maintenanceRegistrationCode = async (req: Request, res: Response) =
 
     const now = Date.now();
     const nowIso = new Date(now).toISOString();
-    const cleanupThresholdIso = new Date(now - CLEANUP_DAYS_THRESHOLD * MILLISECONDS_PER_DAY).toISOString();
+    const cleanupThresholdIso = new Date(
+      now - CLEANUP_DAYS_THRESHOLD * MILLISECONDS_PER_DAY,
+    ).toISOString();
 
     console.log('[MAINTENANCE] Performing atomic maintenance operation');
     console.log('[MAINTENANCE] Expiring codes with expires_at <', nowIso);
@@ -29,23 +31,28 @@ export const maintenanceRegistrationCode = async (req: Request, res: Response) =
     console.log('[MAINTENANCE] Cleanup threshold:', CLEANUP_DAYS_THRESHOLD, 'days');
 
     // Perform both operations atomically using a PostgreSQL function via RPC
-    const { data: maintenanceResult, error: maintenanceError } = await supabase
-      .rpc('maintenance_registration_codes', {
+    const { data: maintenanceResult, error: maintenanceError } = await supabase.rpc(
+      'maintenance_registration_codes',
+      {
         p_current_time: nowIso,
-        p_cleanup_threshold: cleanupThresholdIso
-      });
+        p_cleanup_threshold: cleanupThresholdIso,
+      },
+    );
 
     if (maintenanceError) {
       console.error('[MAINTENANCE] Transaction failed:', maintenanceError);
-      return res.status(500).json({ 
+      return res.status(500).json({
         message: 'Failed to perform maintenance operation. Please try again later.',
-        correlationId: `maintenance-${Date.now()}`
+        correlationId: `maintenance-${Date.now()}`,
       });
     }
 
     // maintenanceResult should contain { expired_count, deleted_count }
-    const { expired_count: expiredCount, deleted_count: deletedCount } = maintenanceResult || { expired_count: 0, deleted_count: 0 };
-    
+    const { expired_count: expiredCount, deleted_count: deletedCount } = maintenanceResult || {
+      expired_count: 0,
+      deleted_count: 0,
+    };
+
     console.log('[MAINTENANCE] Expired codes count:', expiredCount);
     console.log('[MAINTENANCE] Deleted codes count:', deletedCount);
     console.log('[MAINTENANCE] Maintenance completed successfully at', nowIso);
@@ -59,9 +66,9 @@ export const maintenanceRegistrationCode = async (req: Request, res: Response) =
     });
   } catch (err) {
     console.error('[MAINTENANCE] Server error:', err);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Internal server error during maintenance operation.',
-      correlationId: `maintenance-error-${Date.now()}`
+      correlationId: `maintenance-error-${Date.now()}`,
     });
   }
 };
