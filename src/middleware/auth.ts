@@ -1,6 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
+declare module 'express' {
+  interface Request {
+    user?: { userId: string };
+  }
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key';
 
 export const authenticatePatient = (req: Request, res: Response, next: NextFunction) => {
@@ -20,9 +26,9 @@ export const authenticatePatient = (req: Request, res: Response, next: NextFunct
       return res.status(403).json({ error: 'Forbidden: Access denied' });
     }
 
-    (req as any).user = decoded;
+    req.user = decoded;
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    return res.status(401).json({ error: 'Unauthorized:', err });
   }
 };
