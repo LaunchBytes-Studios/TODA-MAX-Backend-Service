@@ -17,7 +17,7 @@ export const login = async (req: Request, res: Response) => {
 
     const { data: admin, error } = await supabase
       .from('eNavigator')
-      .select('*')
+      .select('enav_id, name, contact, password_hash')
       .eq('contact', contact)
       .single();
 
@@ -25,19 +25,13 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const storedPassword = admin.password_hash || admin.password;
+    const storedPassword = admin.password_hash;
 
     if (!storedPassword) {
       return res.status(500).json({ error: 'Account configuration error' });
     }
 
-    let passwordValid = false;
-
-    if (typeof storedPassword === 'string' && storedPassword.startsWith('$2')) {
-      passwordValid = await bcrypt.compare(inputPassword, storedPassword);
-    } else {
-      passwordValid = inputPassword === storedPassword;
-    }
+    const passwordValid = await bcrypt.compare(inputPassword, storedPassword);
 
     if (!passwordValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -55,7 +49,11 @@ export const login = async (req: Request, res: Response) => {
 
     console.log('Successful admin login for:', admin.enav_id);
 
-    const { password: adminPassword, ...adminWithoutPassword } = admin;
+    const adminWithoutPassword = {
+      enav_id: admin.enav_id,
+      name: admin.name,
+      contact: admin.contact,
+    };
 
     return res.json({
       token,

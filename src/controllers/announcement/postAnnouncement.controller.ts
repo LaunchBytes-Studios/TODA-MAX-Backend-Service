@@ -9,12 +9,10 @@ export const makeAnnouncement = async (req: Request, res: Response) => {
     try {
       enav_id = await getFirstEnavId();
     } catch (err) {
-      return res
-        .status(500)
-        .json({
-          error: 'Error fetching enav_id from eNavigator table.',
-          details: err instanceof Error ? err.message : err,
-        });
+      return res.status(500).json({
+        error: 'Error fetching enav_id from eNavigator table.',
+        details: err instanceof Error ? err.message : err,
+      });
     }
 
     const { data, error } = await supabase
