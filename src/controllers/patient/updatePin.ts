@@ -8,14 +8,17 @@ export const updatePin = async (req: Request, res: Response) => {
   const { currentPin, newPin } = req.body;
 
   // 1. Get the patient from DB
-  const { data: patient } = await supabase.from('Patient')
-    .select('pin_hash').eq('patient_id', id).single();
+  const { data: patient } = await supabase
+    .from('Patient')
+    .select('pin_hash')
+    .eq('patient_id', id)
+    .single();
 
   // 2. THE CHECK: Compare provided currentPin with the stored hash
   if (!patient || !patient.pin_hash) {
     return res.status(404).json({ error: 'Patient not found or PIN not set' });
   }
-  
+
   const isMatch = await bcrypt.compare(currentPin, patient.pin_hash);
 
   if (!isMatch) {
