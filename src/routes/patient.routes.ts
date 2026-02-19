@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { registerPatient } from '../controllers/patient/registerPatient';
 import { loginPatient } from '../controllers/patient/loginPatient';
 import { updatePatientProfile } from '../controllers/patient/updatePatientProfile';
-import { updateAvatar } from '../controllers/patient/udpateAvatar';
+import { updateAvatar } from '../controllers/patient/updateAvatar';
 import { updatePin } from '../controllers/patient/updatePin';
 import { authenticatePatient } from '../middleware/auth';
 import multer from 'multer';
