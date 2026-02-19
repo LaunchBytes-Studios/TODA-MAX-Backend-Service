@@ -3,7 +3,23 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key';
 
-export const authenticatePatient = (req: Request, res: Response, next: NextFunction) => {
+// Define a custom type for the decoded JWT payload
+interface JwtPayload {
+  userId: string;
+  role: string;
+  contact: string;
+}
+
+// Extend Express Request to include `user`
+interface AuthenticatedRequest extends Request {
+  user?: JwtPayload;
+}
+
+export const authenticatePatient = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: No token provided' });
@@ -12,7 +28,7 @@ export const authenticatePatient = (req: Request, res: Response, next: NextFunct
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
     const { id } = req.params;
 
     // Authorization: Check if the token belongs to the ID being accessed
@@ -20,9 +36,9 @@ export const authenticatePatient = (req: Request, res: Response, next: NextFunct
       return res.status(403).json({ error: 'Forbidden: Access denied' });
     }
 
-    (req as any).user = decoded;
+    req.user = decoded; // ✅ strongly typed now
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    return res.status(401).json({ error: 'Unauthorized', details: err });
   }
 };
