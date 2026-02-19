@@ -7,7 +7,7 @@ import {
   deleteMedication,
   updateMedicationStock,
   getMedicationStats,
-  searchMedications
+  searchMedications,
 } from '../controllers/medication/medication.controller';
 
 const router = express.Router();
