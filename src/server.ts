@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import patientRoutes from './routes/patient.routes';
 import enavRoutes from './routes/enav.routes';
 import medicationRoutes from './routes/medication.routes'; // NEW
+import orderingRoutes from './routes/ordering.routes'; // NEW
 import cors from 'cors';
 
 const app = express();
@@ -34,6 +35,7 @@ app.use('/enavigator', enavRoutes);
 app.use('/patients', patientRoutes);
 app.use('/auth', enavRoutes);
 app.use('/medications', medicationRoutes); // NEW
+app.use('/orders', orderingRoutes); // NEW
 
 /* -------------------------
    Server
