@@ -139,9 +139,7 @@ export const deleteOrderItemService = async (id: string): Promise<boolean> => {
 };
 
 // Get order items with medication details
-export const getOrderItemsWithDetailsService = async (
-  orderId: string,
-): Promise<OrderItem[]> => {
+export const getOrderItemsWithDetailsService = async (orderId: string): Promise<OrderItem[]> => {
   const { data: items, error } = await supabase
     .from('OrderItem')
     .select('*, medication:Medication(name, type, price)')
@@ -155,9 +153,12 @@ export const getOrderItemsWithDetailsService = async (
 };
 
 // Create new order with order items
-export const createOrderService = async (patientId: string, data: CreateOrderDTO): Promise<{ order: Order; items: OrderItem[] }> => {
+export const createOrderService = async (
+  patientId: string,
+  data: CreateOrderDTO,
+): Promise<{ order: Order; items: OrderItem[] }> => {
   const today = new Date().toISOString().split('T')[0];
-  
+
   // Step 1: Create the Order
   const { data: order, error } = await supabase
     .from('Order')
@@ -178,9 +179,9 @@ export const createOrderService = async (patientId: string, data: CreateOrderDTO
 
   // Step 2: Create OrderItems if items are provided
   let createdItems: OrderItem[] = [];
-  
+
   if (data.items && data.items.length > 0) {
-    const orderItems = data.items.map(item => ({
+    const orderItems = data.items.map((item) => ({
       order_id: order.order_id,
       medication_id: item.medication_id,
       quantity: item.quantity,
