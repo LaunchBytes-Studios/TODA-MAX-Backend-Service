@@ -87,10 +87,7 @@ export const getAllOrderItems = async (req: AuthenticatedRequest, res: Response)
     }
 
     // Get order items only for patient's orders
-    let query = supabase
-      .from('OrderItem')
-      .select('*', { count: 'exact' })
-      .in('order_id', orderIds);
+    let query = supabase.from('OrderItem').select('*', { count: 'exact' }).in('order_id', orderIds);
 
     if (filters.medication_id) {
       query = query.eq('medication_id', filters.medication_id);
