@@ -7,6 +7,8 @@ import {
   UpdateOrderItemDTO,
   PaginatedOrderItemResponse,
   GetOrderItemsFilters,
+  Order,
+  CreateOrderDTO,
 } from '../controllers/ordering/orderItem.types';
 
 // Get all order items with optional filters
@@ -150,4 +152,54 @@ export const getOrderItemsWithDetailsService = async (
   }
 
   return items || [];
+};
+
+// Create new order with order items
+export const createOrderService = async (patientId: string, data: CreateOrderDTO): Promise<{ order: Order; items: OrderItem[] }> => {
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Step 1: Create the Order
+  const { data: order, error } = await supabase
+    .from('Order')
+    .insert([
+      {
+        patient_id: patientId,
+        status: 'pending',
+        order_date: today,
+        delivery_type: data.delivery_type,
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to create order: ${error.message}`);
+  }
+
+  // Step 2: Create OrderItems if items are provided
+  let createdItems: OrderItem[] = [];
+  
+  if (data.items && data.items.length > 0) {
+    const orderItems = data.items.map(item => ({
+      order_id: order.order_id,
+      medication_id: item.medication_id,
+      quantity: item.quantity,
+      price: item.price,
+    }));
+
+    const { data: items, error: itemsError } = await supabase
+      .from('OrderItem')
+      .insert(orderItems)
+      .select();
+
+    if (itemsError) {
+      // If items creation fails, we should ideally rollback the order
+      // For now, we'll throw an error
+      throw new Error(`Failed to create order items: ${itemsError.message}`);
+    }
+
+    createdItems = items || [];
+  }
+
+  return { order, items: createdItems };
 };

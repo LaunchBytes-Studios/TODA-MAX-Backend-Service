@@ -38,3 +38,22 @@ export interface PaginatedOrderItemResponse {
   limit: number;
   totalPages: number;
 }
+
+export interface Order {
+  order_id: string;
+  patient_id: string;
+  status: string;
+  order_date: string;
+  delivery_type: string;
+}
+
+export interface CheckoutItemDTO {
+  medication_id: number;
+  quantity: number;
+  price: number;
+}
+
+export interface CreateOrderDTO {
+  delivery_type: string;
+  items: CheckoutItemDTO[];
+}
