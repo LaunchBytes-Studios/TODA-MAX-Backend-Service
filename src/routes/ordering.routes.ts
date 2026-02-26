@@ -9,10 +9,14 @@ import {
   createOrderItem,
   updateOrderItem,
   deleteOrderItem,
+  checkout,
 } from '../controllers/ordering/getOrderItem.controller';
 import { authenticatePatient } from '../middleware/auth';
 
 const router = express.Router();
+
+// Checkout - Create new order
+router.post('/checkout', authenticatePatient, checkout);
 
 // Create new order item
 router.post('/', authenticatePatient, createOrderItem);

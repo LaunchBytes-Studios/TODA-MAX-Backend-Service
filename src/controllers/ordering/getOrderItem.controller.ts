@@ -5,6 +5,7 @@ import {
   createOrderItemService,
   updateOrderItemService,
   deleteOrderItemService,
+  createOrderService,
 } from '../../services/ordering.service';
 import { supabase } from '../../config/db';
 
@@ -482,6 +483,74 @@ export const deleteOrderItem = async (req: AuthenticatedRequest, res: Response) 
     return res.status(500).json({
       success: false,
       message: 'Failed to delete order item',
+      error: errorMessage,
+    });
+  }
+};
+
+// Checkout - Create a new order with items
+export const checkout = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const patientId = req.user?.userId;
+
+    if (!patientId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: Patient ID not found',
+      });
+    }
+
+    // Validate required fields
+    if (!req.body.delivery_type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required field: delivery_type',
+      });
+    }
+
+    if (!req.body.items || !Array.isArray(req.body.items) || req.body.items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required field: items (must be a non-empty array)',
+      });
+    }
+
+    // Validate each item
+    for (const item of req.body.items) {
+      if (!item.medication_id || !item.quantity || item.price === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: 'Each item must have medication_id, quantity, and price',
+        });
+      }
+
+      if (item.quantity <= 0 || item.price < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Quantity must be greater than 0 and price must be non-negative',
+        });
+      }
+    }
+
+    const result = await createOrderService(patientId, {
+      delivery_type: req.body.delivery_type,
+      items: req.body.items,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Order and items created successfully',
+      data: {
+        order: result.order,
+        items: result.items,
+        total_items: result.items.length,
+      },
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create order',
       error: errorMessage,
     });
   }
