@@ -194,8 +194,16 @@ export const createOrderService = async (
       .select();
 
     if (itemsError) {
-      // If items creation fails, we should ideally rollback the order
-      // For now, we'll throw an error
+      // If items creation fails, attempt to rollback by deleting the created order
+      const { error: deleteOrderError } = await supabase
+        .from('Order')
+        .delete()
+        .eq('order_id', order.order_id);
+
+      if (deleteOrderError) {
+        console.error('Failed to rollback order after item creation failure:', deleteOrderError);
+      }
+
       throw new Error(`Failed to create order items: ${itemsError.message}`);
     }
 

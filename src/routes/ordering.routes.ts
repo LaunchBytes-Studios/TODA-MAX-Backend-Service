@@ -10,7 +10,7 @@ import {
   updateOrderItem,
   deleteOrderItem,
   checkout,
-} from '../controllers/ordering/getOrderItem.controller';
+} from '../controllers/ordering/ordering.controller';
 import { authenticatePatient } from '../middleware/auth';
 
 const router = express.Router();
@@ -28,15 +28,15 @@ router.get('/:orderId', authenticatePatient, getOrderItems);
 router.get('/', authenticatePatient, getAllOrderItems);
 
 // Get a specific order item by ID (for cart review)
-router.get('/item/:id', authenticatePatient, getOrderItemById);
+router.get('/item/:orderItemId', authenticatePatient, getOrderItemById);
 
 // Create new order item (for cart functionality)
 router.post('/', authenticatePatient, createOrderItem);
 
 // Update order item (for cart editing)
-router.put('/item/:id', authenticatePatient, updateOrderItem);
+router.put('/item/:orderItemId', authenticatePatient, updateOrderItem);
 
 // Delete order item (for cart removal)
-router.delete('/item/:id', authenticatePatient, deleteOrderItem);
+router.delete('/item/:orderItemId', authenticatePatient, deleteOrderItem);
 
 export default router;
