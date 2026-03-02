@@ -142,7 +142,7 @@ export const deleteOrderItemService = async (id: string): Promise<boolean> => {
 export const getOrderItemsWithDetailsService = async (orderId: string): Promise<OrderItem[]> => {
   const { data: items, error } = await supabase
     .from('OrderItem')
-    .select('*, medication:Medication(name, type, price)')
+    .select('*, medication:Medication(name, type)')
     .eq('order_id', orderId);
 
   if (error) {

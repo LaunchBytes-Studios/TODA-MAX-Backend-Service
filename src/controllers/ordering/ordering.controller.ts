@@ -59,11 +59,14 @@ export const getAllOrderItems = async (req: Request, res: Response) => {
     };
 
     // Get orders for this patient first
-    const { data: orders } = await supabase
-      .from('Order')
-      .select('order_id')
-      .eq('patient_id', patientId);
+    const { data: orders, error: ordersError } = await supabase  
+      .from('Order')  
+      .select('order_id')  
+      .eq('patient_id', patientId);  
 
+    if (ordersError) {  
+      throw new Error(`Failed to retrieve orders for patient: ${ordersError.message}`);  
+    }
     const orderIds = orders?.map((o) => o.order_id) || [];
 
     if (orderIds.length === 0) {
@@ -411,15 +414,32 @@ export const updateOrderItem = async (req: Request, res: Response) => {
       updateData.quantity = quantity;
     }
 
-    if (req.body.price !== undefined) {
-      const price = parseFloat(req.body.price);
-      if (isNaN(price) || price < 0) {
+    // Price is server-derived from medication_id and cannot be updated by client
+    // If medication_id is provided, re-fetch the authoritative price
+    if (req.body.medication_id !== undefined) {
+      const medicationId = parseInt(req.body.medication_id);
+      if (isNaN(medicationId)) {
         return res.status(400).json({
           success: false,
-          message: 'Price must be a non-negative number',
+          message: 'Invalid medication_id',
         });
       }
-      updateData.price = price;
+
+      const { data: medication, error: medError } = await supabase
+        .from('Medication')
+        .select('price')
+        .eq('medication_id', medicationId)
+        .single();
+
+      if (medError || !medication || medication.price === null) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid medication_id or medication has no price',
+        });
+      }
+
+      updateData.medication_id = medicationId;
+      updateData.price = medication.price;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -540,28 +560,41 @@ export const checkout = async (req: Request, res: Response) => {
     }
 
     // Validate each item (do not trust client-supplied prices)
-    for (const item of req.body.items) {
-      if (!item.medication_id || !item.quantity) {
+    const parsedItems: Array<{
+      medication_id: number;
+      quantity: number;
+    }> = [];
+
+    for (const [index, rawItem] of req.body.items.entries()) {
+      if (rawItem.medication_id == null || rawItem.quantity == null) {
         return res.status(400).json({
           success: false,
-          message: 'Each item must have medication_id and quantity',
+          message: `Each item must have medication_id and quantity (invalid at index ${index})`,
         });
       }
 
-      if (item.quantity <= 0) {
+      const medication_id = Number(rawItem.medication_id);
+      const quantity = Number(rawItem.quantity);
+
+      if (!Number.isFinite(medication_id) || !Number.isFinite(quantity)) {
         return res.status(400).json({
           success: false,
-          message: 'Quantity must be greater than 0',
+          message: `medication_id and quantity must be numeric (invalid at index ${index})`,
         });
       }
+
+      if (quantity <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Quantity must be greater than 0 (invalid at index ${index})`,
+        });
+      }
+
+      parsedItems.push({ medication_id, quantity });
     }
 
     // Look up medication prices server-side to prevent price tampering
-    const items = req.body.items as Array<{
-      medication_id: number;
-      quantity: number;
-      // price from client is intentionally ignored
-    }>;
+    const items = parsedItems;
 
     const medicationIds = Array.from(
       new Set(items.map((item) => item.medication_id)),
