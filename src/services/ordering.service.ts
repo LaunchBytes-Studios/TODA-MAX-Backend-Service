@@ -1,5 +1,3 @@
-// filepath: src/services/ordering.service.ts
-
 import { supabase } from '../config/db';
 import {
   OrderItem,

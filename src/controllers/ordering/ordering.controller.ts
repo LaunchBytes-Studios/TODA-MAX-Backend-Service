@@ -404,11 +404,11 @@ export const updateOrderItem = async (req: Request, res: Response) => {
     const updateData: Record<string, unknown> = {};
 
     if (req.body.quantity !== undefined) {
-      const quantity = parseInt(req.body.quantity);
-      if (isNaN(quantity) || quantity <= 0) {
+      const quantity = Number(req.body.quantity);
+      if (!Number.isInteger(quantity) || quantity <= 0) {
         return res.status(400).json({
           success: false,
-          message: 'Quantity must be a positive number',
+          message: 'Quantity must be a positive integer',
         });
       }
       updateData.quantity = quantity;
@@ -417,8 +417,8 @@ export const updateOrderItem = async (req: Request, res: Response) => {
     // Price is server-derived from medication_id and cannot be updated by client
     // If medication_id is provided, re-fetch the authoritative price
     if (req.body.medication_id !== undefined) {
-      const medicationId = parseInt(req.body.medication_id);
-      if (isNaN(medicationId)) {
+      const medicationId = Number(req.body.medication_id);
+      if (!Number.isFinite(medicationId) || !Number.isInteger(medicationId)) {
         return res.status(400).json({
           success: false,
           message: 'Invalid medication_id',

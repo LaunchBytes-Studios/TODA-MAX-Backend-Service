@@ -20,7 +20,19 @@ export interface CreateOrderItemDTO {
 }
 
 export interface UpdateOrderItemDTO {
+  /**
+   * Optionally change the medication associated with this order item.
+   * When provided, the server will re-calculate the price.
+   */
+  medication_id?: number;
+  /**
+   * Optionally change the quantity. The server may re-calculate the price.
+   */
   quantity?: number;
+  /**
+   * Server-derived field — not accepted from the client.
+   * Included here so the service layer can persist the re-calculated value.
+   */
   price?: number;
 }
 
