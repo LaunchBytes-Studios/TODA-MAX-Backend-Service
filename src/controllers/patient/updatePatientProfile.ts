@@ -3,20 +3,14 @@ import { supabase } from '../../config/db';
 
 export const updatePatientProfile = async (req: Request, res: Response) => {
   const { id } = req.params; // patient_id
-  const {
-    firstname,
-    surname,
-    birthday,
-    contact,
-    address,
-    diagnosis,
-    sex,
-    philhealthNumber,
-    avatar_url,
-  } = req.body ?? {};
+  const { firstname, surname, address, philhealthNumber, avatar_url } = req.body ?? {};
 
-  if (!id) {
-    return res.status(400).json({ error: 'Missing patient id' });
+  if (!id || !address || !surname || !firstname) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  if ( philhealthNumber &&  philhealthNumber.length < 12) {
+    return res.status(400).json({ error: 'PhilHealth number must be 12 digits long' });
   }
 
   try {
@@ -37,11 +31,7 @@ export const updatePatientProfile = async (req: Request, res: Response) => {
       .update({
         firstname,
         surname,
-        birthday,
-        sex,
-        contact,
         address,
-        diagnosis,
         philhealth_num: philhealthNumber,
         avatar_url,
       })
