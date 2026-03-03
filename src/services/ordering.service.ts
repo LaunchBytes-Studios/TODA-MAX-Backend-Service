@@ -124,16 +124,17 @@ export const updateOrderItemService = async (
 
 // Delete order item
 export const deleteOrderItemService = async (id: string): Promise<boolean> => {
-  const { error } = await supabase.from('OrderItem').delete().eq('order_item_id', id);
+  const { data, error } = await supabase
+    .from('OrderItem')
+    .delete()
+    .eq('order_item_id', id)
+    .select('order_item_id');
 
   if (error) {
-    if (error.code === 'PGRST116') {
-      return false;
-    }
     throw new Error(`Failed to delete order item: ${error.message}`);
   }
 
-  return true;
+  return Array.isArray(data) && data.length > 0;
 };
 
 // Get order items with medication details

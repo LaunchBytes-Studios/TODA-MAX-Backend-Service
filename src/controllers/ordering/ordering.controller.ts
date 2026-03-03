@@ -19,21 +19,24 @@ const parseId = (idParam: string | string[]): string => {
 
 // Helper function to verify order belongs to patient
 const verifyOrderOwnership = async (orderId: string, patientId: string): Promise<boolean> => {
-  try {
-    const { data, error } = await supabase
-      .from('Order')
-      .select('order_id')
-      .eq('order_id', orderId)
-      .eq('patient_id', patientId)
-      .single();
+  const { data, error } = await supabase
+    .from('Order')
+    .select('order_id')
+    .eq('order_id', orderId)
+    .eq('patient_id', patientId)
+    .single();
 
-    if (error || !data) {
+  if (error) {
+    // PostgREST "no rows found" — treat as not owned / not found
+    if ((error as { code?: string }).code === 'PGRST116') {
       return false;
     }
-    return true;
-  } catch {
-    return false;
+    // Unexpected DB/permission error would call 500 instead of 403, so log it for debugging
+    console.error('Unexpected error verifying order ownership:', error);
+    throw error;
   }
+
+  return !!data;
 };
 
 // Get all order items for the authenticated patient with pagination and filters
@@ -150,11 +153,14 @@ export const getOrderItemById = async (req: Request, res: Response) => {
       .eq('order_item_id', id)
       .single();
 
-    if (error || !item) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order item not found',
-      });
+    if (error) {
+      if ((error as { code?: string }).code === 'PGRST116') {
+        return res.status(404).json({ success: false, message: 'Order item not found' });
+      }
+      throw error;
+    }
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Order item not found' });
     }
 
     // Verify the item belongs to the patient
@@ -385,11 +391,14 @@ export const updateOrderItem = async (req: Request, res: Response) => {
       .eq('order_item_id', id)
       .single();
 
-    if (itemError || !item) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order item not found',
-      });
+    if (itemError) {
+      if ((itemError as { code?: string }).code === 'PGRST116') {
+        return res.status(404).json({ success: false, message: 'Order item not found' });
+      }
+      throw itemError;
+    }
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Order item not found' });
     }
 
     const itemOrder = item.order as { patient_id: string } | null;
@@ -494,11 +503,14 @@ export const deleteOrderItem = async (req: Request, res: Response) => {
       .eq('order_item_id', id)
       .single();
 
-    if (itemError || !item) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order item not found',
-      });
+    if (itemError) {
+      if ((itemError as { code?: string }).code === 'PGRST116') {
+        return res.status(404).json({ success: false, message: 'Order item not found' });
+      }
+      throw itemError;
+    }
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Order item not found' });
     }
 
     const itemOrder = item.order as { patient_id: string } | null;
@@ -576,10 +588,15 @@ export const checkout = async (req: Request, res: Response) => {
       const medication_id = Number(rawItem.medication_id);
       const quantity = Number(rawItem.quantity);
 
-      if (!Number.isFinite(medication_id) || !Number.isFinite(quantity)) {
+      if (
+        !Number.isFinite(medication_id) ||
+        !Number.isInteger(medication_id) ||
+        !Number.isFinite(quantity) ||
+        !Number.isInteger(quantity)
+      ) {
         return res.status(400).json({
           success: false,
-          message: `medication_id and quantity must be numeric (invalid at index ${index})`,
+          message: `medication_id and quantity must be positive integers (invalid at index ${index})`,
         });
       }
 
