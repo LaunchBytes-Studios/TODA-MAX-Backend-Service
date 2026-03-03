@@ -69,3 +69,11 @@ export interface CreateOrderDTO {
   delivery_type: string;
   items: CheckoutItemDTO[];
 }
+
+export interface PaginatedOrderResponse {
+  orders: Order[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}

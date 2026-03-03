@@ -3,10 +3,11 @@ import {
   OrderItem,
   CreateOrderItemDTO,
   UpdateOrderItemDTO,
-  PaginatedOrderItemResponse,
-  GetOrderItemsFilters,
   Order,
   CreateOrderDTO,
+  PaginatedOrderResponse,
+  GetOrderItemsFilters,
+  PaginatedOrderItemResponse,
 } from '../controllers/ordering/orderItem.types';
 
 // Get all order items with optional filters
@@ -76,6 +77,46 @@ export const getOrderByIdService = async (orderId: string): Promise<OrderItem[]>
   }
 
   return items || [];
+};
+
+// Get all orders for a patient with pagination
+export const getPatientOrdersService = async (
+  patientId: string,
+  filters?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  },
+): Promise<PaginatedOrderResponse> => {
+  let query = supabase
+    .from('Order')
+    .select('*', { count: 'exact' })
+    .eq('patient_id', patientId);
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
+  }
+
+  const page = filters?.page || 1;
+  const limit = filters?.limit || 10;
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  query = query.range(from, to).order('order_date', { ascending: false });
+
+  const { data: orders, error, count } = await query;
+
+  if (error) {
+    throw new Error(`Failed to retrieve patient orders: ${error.message}`);
+  }
+
+  return {
+    orders: orders || [],
+    total: count || 0,
+    page,
+    limit,
+    totalPages: Math.ceil((count || 0) / limit),
+  };
 };
 
 // Create new order item
