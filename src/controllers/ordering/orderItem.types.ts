@@ -36,21 +36,6 @@ export interface UpdateOrderItemDTO {
   price?: number;
 }
 
-export interface GetOrderItemsFilters {
-  order_id?: string;
-  medication_id?: number;
-  page?: number;
-  limit?: number;
-}
-
-export interface PaginatedOrderItemResponse {
-  items: OrderItem[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
 export interface Order {
   order_id: string;
   patient_id: string;
@@ -68,12 +53,4 @@ export interface CheckoutItemDTO {
 export interface CreateOrderDTO {
   delivery_type: string;
   items: CheckoutItemDTO[];
-}
-
-export interface PaginatedOrderResponse {
-  orders: Order[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
 }

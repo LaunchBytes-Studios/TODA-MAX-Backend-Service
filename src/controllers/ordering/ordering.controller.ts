@@ -9,15 +9,43 @@ import {
 } from '../../services/ordering.service';
 import { supabase } from '../../config/db';
 
-// Patient JWTs only include userId — do not rely on role/contact being present.
-// We reuse the global Express.Request['user'] type from enav.middleware.ts.
+// --- Helpers ---
 
-// Helper function to safely parse ID
-const parseId = (idParam: string | string[]): string => {
-  return Array.isArray(idParam) ? idParam[0] : idParam;
+// Catches thrown errors from route handlers and returns a uniform JSON error.
+// Respects HttpError.status when thrown (e.g. 401), defaults to 500 otherwise.
+const asyncHandler =
+  (label: string, fn: (req: Request, res: Response) => Promise<Response>) =>
+  async (req: Request, res: Response) => {
+    try {
+      return await fn(req, res);
+    } catch (error: unknown) {
+      const status = error instanceof HttpError ? error.status : 500;
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      return res.status(status).json({ success: false, message: label, error: msg });
+    }
+  };
+
+// Thrown when a request lacks a valid patient JWT.
+class HttpError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+const requirePatientId = (req: Request): string => {
+  const id = req.user?.userId;
+  if (!id) throw new HttpError(401, 'Unauthorized: Patient ID not found');
+  return id;
 };
 
-// Helper function to verify order belongs to patient
+// Express params can be string | string[] depending on route config.
+const parseId = (idParam: string | string[]): string =>
+  Array.isArray(idParam) ? idParam[0] : idParam;
+
+// Checks that the given order actually belongs to this patient.
 const verifyOrderOwnership = async (orderId: string, patientId: string): Promise<boolean> => {
   const { data, error } = await supabase
     .from('Order')
@@ -27,659 +55,287 @@ const verifyOrderOwnership = async (orderId: string, patientId: string): Promise
     .single();
 
   if (error) {
-    // PostgREST "no rows found" — treat as not owned / not found
-    if ((error as { code?: string }).code === 'PGRST116') {
-      return false;
-    }
-    // Unexpected DB/permission error would call 500 instead of 403, so log it for debugging
+    if ((error as { code?: string }).code === 'PGRST116') return false;
     console.error('Unexpected error verifying order ownership:', error);
     throw error;
   }
-
   return !!data;
 };
 
-// Get all order items for the authenticated patient with pagination and filters
-export const getAllOrderItems = async (req: Request, res: Response) => {
-  try {
-    const patientId = req.user?.userId;
+// Grabs an order item and confirms the requesting patient owns it.
+// Sends 404/403 directly and returns null if the check fails.
+const fetchOwnedOrderItem = async (
+  req: Request,
+  res: Response,
+  patientId: string,
+) => {
+  const id = parseId(req.params.orderItemId);
 
-    if (!patientId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Patient ID not found',
-      });
+  const { data: item, error } = await supabase
+    .from('OrderItem')
+    .select('*, order:Order(patient_id)')
+    .eq('order_item_id', id)
+    .single();
+
+  if (error) {
+    if ((error as { code?: string }).code === 'PGRST116') {
+      res.status(404).json({ success: false, message: 'Order item not found' });
+      return null;
     }
+    throw error;
+  }
+  if (!item) {
+    res.status(404).json({ success: false, message: 'Order item not found' });
+    return null;
+  }
 
-    const filters = {
-      order_id: req.query.order_id as string | undefined,
-      medication_id: req.query.medication_id
-        ? parseInt(req.query.medication_id as string)
-        : undefined,
-      page: req.query.page ? parseInt(req.query.page as string) : 1,
-      limit: req.query.limit ? parseInt(req.query.limit as string) : 10,
-      patientId, // pass patient ID for filtering
-    };
+  const owner = item.order as { patient_id: string } | null;
+  if (!owner || owner.patient_id !== patientId) {
+    res.status(403).json({ success: false, message: 'Forbidden: not your order item' });
+    return null;
+  }
+  return { id, item };
+};
 
-    // Get orders for this patient first
-    const { data: orders, error: ordersError } = await supabase  
-      .from('Order')  
-      .select('order_id')  
-      .eq('patient_id', patientId);  
+// Pulls the canonical price from the Medication table so clients can't tamper with it.
+// Returns null (and responds 400) when the medication doesn't exist or has no price.
+const fetchMedicationPrice = async (
+  res: Response,
+  medicationId: number,
+): Promise<number | null> => {
+  const { data, error } = await supabase
+    .from('Medication')
+    .select('price')
+    .eq('medication_id', medicationId)
+    .single();
 
-    if (ordersError) {  
-      throw new Error(`Failed to retrieve orders for patient: ${ordersError.message}`);  
-    }
-    const orderIds = orders?.map((o) => o.order_id) || [];
+  if (error || !data || data.price == null) {
+    res.status(400).json({ success: false, message: 'Invalid medication_id or no price' });
+    return null;
+  }
+  return data.price as number;
+};
 
-    if (orderIds.length === 0) {
-      return res.json({
-        success: true,
-        message: 'No orders found for this patient',
-        data: [],
-        meta: {
-          total: 0,
-          page: 1,
-          limit: 10,
-          totalPages: 0,
-        },
-      });
-    }
+// --- Route handlers ---
 
-    // Get order items only for patient's orders
-    let query = supabase.from('OrderItem').select('*', { count: 'exact' }).in('order_id', orderIds);
+// GET / — paginated order items scoped to the authenticated patient.
+export const getAllOrderItems = asyncHandler('Failed to retrieve order items', async (req, res) => {
+  const patientId = requirePatientId(req);
 
-    // Apply order_id filter if provided (constrained to patient's orders)
-    if (filters.order_id) {
-      query = query.eq('order_id', filters.order_id);
-    }
+  const { data: orders, error: ordersError } = await supabase
+    .from('Order')
+    .select('order_id')
+    .eq('patient_id', patientId);
 
-    if (filters.medication_id) {
-      query = query.eq('medication_id', filters.medication_id);
-    }
+  if (ordersError) throw new Error(`Failed to retrieve orders: ${ordersError.message}`);
 
-    const page = filters.page || 1;
-    const limit = filters.limit || 10;
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+  const orderIds = orders?.map((o) => o.order_id) || [];
 
-    query = query.range(from, to).order('order_item_id', { ascending: false });
-
-    const { data: items, error, count } = await query;
-
-    if (error) {
-      throw new Error(`Failed to retrieve order items: ${error.message}`);
-    }
-
+  if (orderIds.length === 0) {
     return res.json({
       success: true,
-      message: 'Order items retrieved successfully',
-      data: items || [],
-      meta: {
-        total: count || 0,
-        page,
-        limit,
-        totalPages: Math.ceil((count || 0) / limit),
-      },
-    });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve order items',
-      error: errorMessage,
+      message: 'No orders found for this patient',
+      data: [],
+      meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
     });
   }
-};
 
-// Get single order item by ID (verify it belongs to patient)
-export const getOrderItemById = async (req: Request, res: Response) => {
-  try {
-    const patientId = req.user?.userId;
+  let query = supabase.from('OrderItem').select('*', { count: 'exact' }).in('order_id', orderIds);
 
-    if (!patientId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Patient ID not found',
-      });
-    }
+  const orderId = req.query.order_id as string | undefined;
+  const medicationId = req.query.medication_id ? parseInt(req.query.medication_id as string) : undefined;
+  if (orderId) query = query.eq('order_id', orderId);
+  if (medicationId) query = query.eq('medication_id', medicationId);
 
-    const id = parseId(req.params.orderItemId);
+  const page = req.query.page ? parseInt(req.query.page as string) : 1;
+  const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+  const from = (page - 1) * limit;
 
-    // Get the order item and verify it belongs to patient's order
-    const { data: item, error } = await supabase
-      .from('OrderItem')
-      .select('*, order:Order(patient_id)')
-      .eq('order_item_id', id)
-      .single();
+  query = query.range(from, from + limit - 1).order('order_item_id', { ascending: false });
 
-    if (error) {
-      if ((error as { code?: string }).code === 'PGRST116') {
-        return res.status(404).json({ success: false, message: 'Order item not found' });
-      }
-      throw error;
-    }
-    if (!item) {
-      return res.status(404).json({ success: false, message: 'Order item not found' });
-    }
+  const { data: items, error, count } = await query;
+  if (error) throw new Error(`Failed to retrieve order items: ${error.message}`);
 
-    // Verify the item belongs to the patient
-    const itemOrder = item.order as { patient_id: string } | null;
-    if (!itemOrder || itemOrder.patient_id !== patientId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden: You do not have access to this order item',
-      });
-    }
+  return res.json({
+    success: true,
+    message: 'Order items retrieved successfully',
+    data: items || [],
+    meta: { total: count || 0, page, limit, totalPages: Math.ceil((count || 0) / limit) },
+  });
+});
 
-    return res.json({
-      success: true,
-      message: 'Order item retrieved successfully',
-      data: item,
-    });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve order item',
-      error: errorMessage,
-    });
+// GET /item/:orderItemId
+export const getOrderItemById = asyncHandler('Failed to retrieve order item', async (req, res) => {
+  const patientId = requirePatientId(req);
+  const result = await fetchOwnedOrderItem(req, res, patientId);
+  if (!result) return res; // already responded
+
+  return res.json({ success: true, message: 'Order item retrieved successfully', data: result.item });
+});
+
+// GET /:orderId — all items within a single order.
+export const getOrderItems = asyncHandler('Failed to retrieve order items', async (req, res) => {
+  const patientId = requirePatientId(req);
+  const orderId = parseId(req.params.orderId);
+
+  if (!(await verifyOrderOwnership(orderId, patientId))) {
+    return res.status(403).json({ success: false, message: 'Forbidden: not your order' });
   }
-};
 
-// Get all items in a specific order for the authenticated patient
-export const getOrderItems = async (req: Request, res: Response) => {
-  try {
-    const patientId = req.user?.userId;
+  const items = await getOrderByIdService(orderId);
+  return res.json({ success: true, message: 'Order items retrieved successfully', data: items, total: items.length });
+});
 
-    if (!patientId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Patient ID not found',
-      });
-    }
+// GET /:orderId/details — items + joined medication info.
+export const getOrderItemsWithDetails = asyncHandler('Failed to retrieve order items with details', async (req, res) => {
+  const patientId = requirePatientId(req);
+  const orderId = parseId(req.params.orderId);
 
-    const orderId = parseId(req.params.orderId);
-
-    // Verify the order belongs to the patient
-    const isOwner = await verifyOrderOwnership(orderId, patientId);
-
-    if (!isOwner) {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden: You do not have access to this order',
-      });
-    }
-
-    const items = await getOrderByIdService(orderId);
-
-    return res.json({
-      success: true,
-      message: 'Order items retrieved successfully',
-      data: items,
-      total: items.length,
-    });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve order items',
-      error: errorMessage,
-    });
+  if (!(await verifyOrderOwnership(orderId, patientId))) {
+    return res.status(403).json({ success: false, message: 'Forbidden: not your order' });
   }
-};
 
-// Get order items with medication details for the authenticated patient
-export const getOrderItemsWithDetails = async (req: Request, res: Response) => {
-  try {
-    const patientId = req.user?.userId;
+  const items = await getOrderItemsWithDetailsService(orderId);
+  return res.json({ success: true, message: 'Order items with details retrieved successfully', data: items, total: items.length });
+});
 
-    if (!patientId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Patient ID not found',
-      });
-    }
+// POST / — add an item to an existing order.
+export const createOrderItem = asyncHandler('Failed to create order item', async (req, res) => {
+  const patientId = requirePatientId(req);
 
-    const orderId = parseId(req.params.orderId);
-
-    // Verify the order belongs to the patient
-    const isOwner = await verifyOrderOwnership(orderId, patientId);
-
-    if (!isOwner) {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden: You do not have access to this order',
-      });
-    }
-
-    const items = await getOrderItemsWithDetailsService(orderId);
-
-    return res.json({
-      success: true,
-      message: 'Order items with details retrieved successfully',
-      data: items,
-      total: items.length,
-    });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve order items with details',
-      error: errorMessage,
-    });
+  if (!req.body.order_id || req.body.medication_id == null || req.body.quantity == null) {
+    return res.status(400).json({ success: false, message: 'Missing required fields: order_id, medication_id, quantity' });
   }
-};
 
-// Create new order item
-export const createOrderItem = async (req: Request, res: Response) => {
-  try {
-    const patientId = req.user?.userId;
-
-    if (!patientId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Patient ID not found',
-      });
-    }
-
-    // Validate required fields — use explicit null/undefined checks for numeric fields
-    if (
-      !req.body.order_id ||
-      req.body.medication_id == null ||
-      req.body.quantity == null
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required fields: order_id, medication_id, quantity',
-      });
-    }
-
-    const orderId = req.body.order_id;
-
-    // Verify the order belongs to the patient
-    const isOwner = await verifyOrderOwnership(orderId, patientId);
-
-    if (!isOwner) {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden: You can only add items to your own orders',
-      });
-    }
-
-    const medicationId = parseInt(req.body.medication_id);
-    const quantity = parseInt(req.body.quantity);
-
-    // Validate types
-    if (isNaN(medicationId) || isNaN(quantity)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid data types: medication_id and quantity must be numbers',
-      });
-    }
-
-    if (quantity <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Quantity must be greater than 0',
-      });
-    }
-
-    // Fetch the authoritative medication price from the database
-    const { data: medication, error: medError } = await supabase
-      .from('Medication')
-      .select('medication_id, price')
-      .eq('medication_id', medicationId)
-      .single();
-
-    if (medError || !medication) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid medication_id: medication not found',
-      });
-    }
-
-    if (medication.price === null || medication.price === undefined) {
-      return res.status(400).json({
-        success: false,
-        message: 'Medication has no price configured',
-      });
-    }
-
-    const itemData = {
-      order_id: orderId,
-      medication_id: medicationId,
-      quantity,
-      price: medication.price as number,
-    };
-
-    const item = await createOrderItemService(itemData);
-
-    return res.status(201).json({
-      success: true,
-      message: 'Order item created successfully',
-      data: item,
-    });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to create order item',
-      error: errorMessage,
-    });
+  const orderId = req.body.order_id;
+  if (!(await verifyOrderOwnership(orderId, patientId))) {
+    return res.status(403).json({ success: false, message: 'Forbidden: not your order' });
   }
-};
 
-// Update order item
-export const updateOrderItem = async (req: Request, res: Response) => {
-  try {
-    const patientId = req.user?.userId;
+  const medicationId = parseInt(req.body.medication_id);
+  const quantity = parseInt(req.body.quantity);
 
-    if (!patientId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Patient ID not found',
-      });
-    }
-
-    const id = parseId(req.params.orderItemId);
-
-    // Verify the item belongs to the patient
-    const { data: item, error: itemError } = await supabase
-      .from('OrderItem')
-      .select('*, order:Order(patient_id)')
-      .eq('order_item_id', id)
-      .single();
-
-    if (itemError) {
-      if ((itemError as { code?: string }).code === 'PGRST116') {
-        return res.status(404).json({ success: false, message: 'Order item not found' });
-      }
-      throw itemError;
-    }
-    if (!item) {
-      return res.status(404).json({ success: false, message: 'Order item not found' });
-    }
-
-    const itemOrder = item.order as { patient_id: string } | null;
-    if (!itemOrder || itemOrder.patient_id !== patientId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden: You can only update your own order items',
-      });
-    }
-
-    // Prepare update data
-    const updateData: Record<string, unknown> = {};
-
-    if (req.body.quantity !== undefined) {
-      const quantity = Number(req.body.quantity);
-      if (!Number.isInteger(quantity) || quantity <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Quantity must be a positive integer',
-        });
-      }
-      updateData.quantity = quantity;
-    }
-
-    // Price is server-derived from medication_id and cannot be updated by client
-    // If medication_id is provided, re-fetch the authoritative price
-    if (req.body.medication_id !== undefined) {
-      const medicationId = Number(req.body.medication_id);
-      if (!Number.isFinite(medicationId) || !Number.isInteger(medicationId)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid medication_id',
-        });
-      }
-
-      const { data: medication, error: medError } = await supabase
-        .from('Medication')
-        .select('price')
-        .eq('medication_id', medicationId)
-        .single();
-
-      if (medError || !medication || medication.price === null) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid medication_id or medication has no price',
-        });
-      }
-
-      updateData.medication_id = medicationId;
-      updateData.price = medication.price;
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No fields to update',
-      });
-    }
-
-    const updatedItem = await updateOrderItemService(id, updateData as Record<string, number>);
-
-    if (!updatedItem) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order item not found',
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: 'Order item updated successfully',
-      data: updatedItem,
-    });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to update order item',
-      error: errorMessage,
-    });
+  if (isNaN(medicationId) || isNaN(quantity)) {
+    return res.status(400).json({ success: false, message: 'medication_id and quantity must be numbers' });
   }
-};
-
-// Delete order item
-export const deleteOrderItem = async (req: Request, res: Response) => {
-  try {
-    const patientId = req.user?.userId;
-
-    if (!patientId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Patient ID not found',
-      });
-    }
-
-    const id = parseId(req.params.orderItemId);
-
-    // Verify the item belongs to the patient
-    const { data: item, error: itemError } = await supabase
-      .from('OrderItem')
-      .select('*, order:Order(patient_id)')
-      .eq('order_item_id', id)
-      .single();
-
-    if (itemError) {
-      if ((itemError as { code?: string }).code === 'PGRST116') {
-        return res.status(404).json({ success: false, message: 'Order item not found' });
-      }
-      throw itemError;
-    }
-    if (!item) {
-      return res.status(404).json({ success: false, message: 'Order item not found' });
-    }
-
-    const itemOrder = item.order as { patient_id: string } | null;
-    if (!itemOrder || itemOrder.patient_id !== patientId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden: You can only delete your own order items',
-      });
-    }
-
-    const deleted = await deleteOrderItemService(id);
-
-    if (!deleted) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order item not found',
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: 'Order item deleted successfully',
-    });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to delete order item',
-      error: errorMessage,
-    });
+  if (quantity <= 0) {
+    return res.status(400).json({ success: false, message: 'Quantity must be greater than 0' });
   }
-};
 
-// Checkout - Create a new order with items
-export const checkout = async (req: Request, res: Response) => {
-  try {
-    const patientId = req.user?.userId;
+  const price = await fetchMedicationPrice(res, medicationId);
+  if (price === null) return res; // already responded 400
 
-    if (!patientId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Patient ID not found',
-      });
+  const item = await createOrderItemService({ order_id: orderId, medication_id: medicationId, quantity, price });
+  return res.status(201).json({ success: true, message: 'Order item created successfully', data: item });
+});
+
+// PUT /item/:orderItemId
+export const updateOrderItem = asyncHandler('Failed to update order item', async (req, res) => {
+  const patientId = requirePatientId(req);
+  const result = await fetchOwnedOrderItem(req, res, patientId);
+  if (!result) return res;
+
+  const updateData: Record<string, unknown> = {};
+
+  if (req.body.quantity !== undefined) {
+    const quantity = Number(req.body.quantity);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      return res.status(400).json({ success: false, message: 'Quantity must be a positive integer' });
     }
-
-    // Validate required fields
-    if (!req.body.delivery_type) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required field: delivery_type',
-      });
-    }
-
-    if (!req.body.items || !Array.isArray(req.body.items) || req.body.items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required field: items (must be a non-empty array)',
-      });
-    }
-
-    // Validate each item (do not trust client-supplied prices)
-    const parsedItems: Array<{
-      medication_id: number;
-      quantity: number;
-    }> = [];
-
-    for (const [index, rawItem] of req.body.items.entries()) {
-      if (rawItem.medication_id == null || rawItem.quantity == null) {
-        return res.status(400).json({
-          success: false,
-          message: `Each item must have medication_id and quantity (invalid at index ${index})`,
-        });
-      }
-
-      const medication_id = Number(rawItem.medication_id);
-      const quantity = Number(rawItem.quantity);
-
-      if (
-        !Number.isFinite(medication_id) ||
-        !Number.isInteger(medication_id) ||
-        !Number.isFinite(quantity) ||
-        !Number.isInteger(quantity)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: `medication_id and quantity must be positive integers (invalid at index ${index})`,
-        });
-      }
-
-      if (quantity <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Quantity must be greater than 0 (invalid at index ${index})`,
-        });
-      }
-
-      parsedItems.push({ medication_id, quantity });
-    }
-
-    // Look up medication prices server-side to prevent price tampering
-    const items = parsedItems;
-
-    const medicationIds = Array.from(
-      new Set(items.map((item) => item.medication_id)),
-    );
-
-    const { data: medications, error: medicationsError } = await supabase
-      .from('Medication')
-      .select('medication_id, price')
-      .in('medication_id', medicationIds);
-
-    if (medicationsError) {
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to fetch medication prices',
-        error: medicationsError.message,
-      });
-    }
-
-    if (!medications || medications.length !== medicationIds.length) {
-      return res.status(400).json({
-        success: false,
-        message: 'One or more medication_ids are invalid',
-      });
-    }
-
-    const medicationPriceMap = new Map<number, number>();
-    for (const med of medications as Array<{ medication_id: number; price: number }>) {
-      if (med.price === null || med.price === undefined) {
-        return res.status(400).json({
-          success: false,
-          message: 'One or more medications have no price configured',
-        });
-      }
-      medicationPriceMap.set(med.medication_id, med.price);
-    }
-
-    const itemsWithPrices = items.map((item) => {
-      const price = medicationPriceMap.get(item.medication_id);
-      if (price === undefined) {
-        throw new Error('Medication price lookup failed');
-      }
-      return {
-        medication_id: item.medication_id,
-        quantity: item.quantity,
-        price,
-      };
-    });
-
-    const result = await createOrderService(patientId, {
-      delivery_type: req.body.delivery_type,
-      items: itemsWithPrices,
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: 'Order and items created successfully',
-      data: {
-        order: result.order,
-        items: result.items,
-        total_items: result.items.length,
-      },
-    });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to create order',
-      error: errorMessage,
-    });
+    updateData.quantity = quantity;
   }
-};
+
+  if (req.body.medication_id !== undefined) {
+    const medicationId = Number(req.body.medication_id);
+    if (!Number.isFinite(medicationId) || !Number.isInteger(medicationId)) {
+      return res.status(400).json({ success: false, message: 'Invalid medication_id' });
+    }
+    const price = await fetchMedicationPrice(res, medicationId);
+    if (price === null) return res;
+    updateData.medication_id = medicationId;
+    updateData.price = price;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return res.status(400).json({ success: false, message: 'No fields to update' });
+  }
+
+  const updatedItem = await updateOrderItemService(result.id, updateData as Record<string, number>);
+  if (!updatedItem) return res.status(404).json({ success: false, message: 'Order item not found' });
+
+  return res.json({ success: true, message: 'Order item updated successfully', data: updatedItem });
+});
+
+// DELETE /item/:orderItemId
+export const deleteOrderItem = asyncHandler('Failed to delete order item', async (req, res) => {
+  const patientId = requirePatientId(req);
+  const result = await fetchOwnedOrderItem(req, res, patientId);
+  if (!result) return res;
+
+  const deleted = await deleteOrderItemService(result.id);
+  if (!deleted) return res.status(404).json({ success: false, message: 'Order item not found' });
+
+  return res.json({ success: true, message: 'Order item deleted successfully' });
+});
+
+// POST /checkout — creates an Order row + its OrderItems in one go.
+// Prices are always resolved server-side to prevent client tampering.
+export const checkout = asyncHandler('Failed to create order', async (req, res) => {
+  const patientId = requirePatientId(req);
+
+  if (!req.body.delivery_type) {
+    return res.status(400).json({ success: false, message: 'Missing required field: delivery_type' });
+  }
+  if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
+    return res.status(400).json({ success: false, message: 'items must be a non-empty array' });
+  }
+
+  const parsedItems: Array<{ medication_id: number; quantity: number }> = [];
+  for (const [index, raw] of req.body.items.entries()) {
+    if (raw.medication_id == null || raw.quantity == null) {
+      return res.status(400).json({ success: false, message: `Missing fields at index ${index}` });
+    }
+    const medication_id = Number(raw.medication_id);
+    const quantity = Number(raw.quantity);
+    if (!Number.isInteger(medication_id) || !Number.isInteger(quantity) || quantity <= 0) {
+      return res.status(400).json({ success: false, message: `Invalid values at index ${index}` });
+    }
+    parsedItems.push({ medication_id, quantity });
+  }
+
+  // Resolve prices from DB — never trust the client payload.
+  const uniqueIds = [...new Set(parsedItems.map((i) => i.medication_id))];
+  const { data: medications, error: medErr } = await supabase
+    .from('Medication')
+    .select('medication_id, price')
+    .in('medication_id', uniqueIds);
+
+  if (medErr) {
+    return res.status(500).json({ success: false, message: 'Failed to fetch medication prices', error: medErr.message });
+  }
+  if (!medications || medications.length !== uniqueIds.length) {
+    return res.status(400).json({ success: false, message: 'One or more medication_ids are invalid' });
+  }
+
+  const priceMap = new Map<number, number>();
+  for (const m of medications as Array<{ medication_id: number; price: number }>) {
+    if (m.price == null) {
+      return res.status(400).json({ success: false, message: 'One or more medications have no price' });
+    }
+    priceMap.set(m.medication_id, m.price);
+  }
+
+  const itemsWithPrices = parsedItems.map((i) => ({
+    medication_id: i.medication_id,
+    quantity: i.quantity,
+    price: priceMap.get(i.medication_id)!,
+  }));
+
+  const result = await createOrderService(patientId, { delivery_type: req.body.delivery_type, items: itemsWithPrices });
+
+  return res.status(201).json({
+    success: true,
+    message: 'Order and items created successfully',
+    data: { order: result.order, items: result.items, total_items: result.items.length },
+  });
+});

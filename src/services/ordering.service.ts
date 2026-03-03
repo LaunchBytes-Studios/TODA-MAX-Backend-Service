@@ -5,64 +5,7 @@ import {
   UpdateOrderItemDTO,
   Order,
   CreateOrderDTO,
-  PaginatedOrderResponse,
-  GetOrderItemsFilters,
-  PaginatedOrderItemResponse,
 } from '../controllers/ordering/orderItem.types';
-
-// Get all order items with optional filters
-export const getOrderItemsService = async (
-  filters: GetOrderItemsFilters,
-): Promise<PaginatedOrderItemResponse> => {
-  let query = supabase.from('OrderItem').select('*', { count: 'exact' });
-
-  if (filters.order_id) {
-    query = query.eq('order_id', filters.order_id);
-  }
-
-  if (filters.medication_id) {
-    query = query.eq('medication_id', filters.medication_id);
-  }
-
-  const page = filters.page || 1;
-  const limit = filters.limit || 10;
-  const from = (page - 1) * limit;
-  const to = from + limit - 1;
-
-  query = query.range(from, to).order('order_item_id', { ascending: false });
-
-  const { data: items, error, count } = await query;
-
-  if (error) {
-    throw new Error(`Failed to retrieve order items: ${error.message}`);
-  }
-
-  return {
-    items: items || [],
-    total: count || 0,
-    page,
-    limit,
-    totalPages: Math.ceil((count || 0) / limit),
-  };
-};
-
-// Get single order item by ID
-export const getOrderItemByIdService = async (id: string): Promise<OrderItem | null> => {
-  const { data: item, error } = await supabase
-    .from('OrderItem')
-    .select('*')
-    .eq('order_item_id', id)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null;
-    }
-    throw new Error(`Failed to retrieve order item: ${error.message}`);
-  }
-
-  return item;
-};
 
 // Get all items for a specific order
 export const getOrderByIdService = async (orderId: string): Promise<OrderItem[]> => {
@@ -77,46 +20,6 @@ export const getOrderByIdService = async (orderId: string): Promise<OrderItem[]>
   }
 
   return items || [];
-};
-
-// Get all orders for a patient with pagination
-export const getPatientOrdersService = async (
-  patientId: string,
-  filters?: {
-    status?: string;
-    page?: number;
-    limit?: number;
-  },
-): Promise<PaginatedOrderResponse> => {
-  let query = supabase
-    .from('Order')
-    .select('*', { count: 'exact' })
-    .eq('patient_id', patientId);
-
-  if (filters?.status) {
-    query = query.eq('status', filters.status);
-  }
-
-  const page = filters?.page || 1;
-  const limit = filters?.limit || 10;
-  const from = (page - 1) * limit;
-  const to = from + limit - 1;
-
-  query = query.range(from, to).order('order_date', { ascending: false });
-
-  const { data: orders, error, count } = await query;
-
-  if (error) {
-    throw new Error(`Failed to retrieve patient orders: ${error.message}`);
-  }
-
-  return {
-    orders: orders || [],
-    total: count || 0,
-    page,
-    limit,
-    totalPages: Math.ceil((count || 0) / limit),
-  };
 };
 
 // Create new order item
@@ -234,14 +137,17 @@ export const createOrderService = async (
       .select();
 
     if (itemsError) {
-      // If items creation fails, attempt to rollback by deleting the created order
-      const { error: deleteOrderError } = await supabase
+      // If items creation fails, mark the order as failed instead of deleting it
+      const { error: updateOrderError } = await supabase
         .from('Order')
-        .delete()
+        .update({ status: 'failed' })
         .eq('order_id', order.order_id);
 
-      if (deleteOrderError) {
-        console.error('Failed to rollback order after item creation failure:', deleteOrderError);
+      if (updateOrderError) {
+        console.error(
+          'Failed to mark order as failed after item creation failure:',
+          updateOrderError,
+        );
       }
 
       throw new Error(`Failed to create order items: ${itemsError.message}`);
