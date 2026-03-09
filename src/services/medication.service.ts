@@ -55,8 +55,7 @@ export const getAllMedicationsService = async (
   }
 
   if (filters.lowStockOnly) {
-    query = query.or(`stock_qty.lte.threshold_qty,stock_qty.lte.10`);
-    console.log('⚠️ Added low stock filter');
+    console.log('⚠️ Low stock filter will be applied using threshold_qty in service layer');
   }
 
   query = query.order('name', { ascending: true });
@@ -67,6 +66,36 @@ export const getAllMedicationsService = async (
   const to = from + limit - 1;
 
   console.log(`📄 Pagination: page=${page}, limit=${limit}, from=${from}, to=${to}`);
+
+  if (filters.lowStockOnly) {
+    const { data: medications, error } = await query;
+
+    console.log('Query executed');
+    console.log('Data received:', medications);
+
+    if (error) {
+      console.error('Database error:', error);
+      throw new Error(`Failed to retrieve medications: ${error.message}`);
+    }
+
+    const lowStockMedications = (medications || []).filter((medication) => {
+      const threshold = medication.threshold_qty ?? 10;
+      return medication.stock_qty <= threshold;
+    });
+
+    const paginatedMedications = lowStockMedications.slice(from, to + 1);
+    const total = lowStockMedications.length;
+
+    console.log('Successfully retrieved low stock medications');
+
+    return {
+      medications: paginatedMedications,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 
   query = query.range(from, to);
 
