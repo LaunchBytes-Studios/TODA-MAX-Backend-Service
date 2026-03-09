@@ -17,6 +17,7 @@ export const getOrders = async (req: Request, res: Response) => {
         )
       `,
       )
+      .eq('delivery_type', 'delivery')
       .order('order_date', { ascending: false });
 
     if (error) return res.status(400).json({ message: error.message });
@@ -48,6 +49,7 @@ export const getOrders = async (req: Request, res: Response) => {
           : 'Unknown',
         patient_diagnosis: diagnosisString,
         created_at: order.order_date,
+        received_date: order.received_date || null,
         amount: totalAmount,
         status: order.status,
         delivery_type: order.delivery_type,
@@ -75,9 +77,7 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
   const { status } = req.body;
 
   try {
-    // // Convert status format: 'out_for_delivery' -> 'out for delivery'
-    // const formattedStatus = status.replaceAll(/_/g, ' ');
-
+    // Status should be one of: pending, preparing, ready, completed, rejected
     const { data, error } = await supabase
       .from('Order')
       .update({ status })
