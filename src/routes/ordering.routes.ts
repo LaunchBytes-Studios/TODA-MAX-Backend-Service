@@ -1,16 +1,7 @@
-// filepath: src/routes/ordering.routes.ts
-
 import express from 'express';
-import {
-  getAllOrderItems,
-  getOrderItemById,
-  getOrderItems,
-  getOrderItemsWithDetails,
-  createOrderItem,
-  updateOrderItem,
-  deleteOrderItem,
-  checkout,
-} from '../controllers/ordering/ordering.controller';
+import { checkout } from '../controllers/ordering/checkout.controller';
+import { confirmOrder } from '../controllers/ordering/confirmOrder.controller';
+import { getPatientOrders } from '../controllers/ordering/getOrders.controller';
 import { authenticatePatient } from '../middleware/auth';
 
 const router = express.Router();
@@ -18,25 +9,10 @@ const router = express.Router();
 // Create new order (checkout)
 router.post('/checkout', authenticatePatient, checkout);
 
-// Get order items with medication details (for order review/cart)
-router.get('/:orderId/details', authenticatePatient, getOrderItemsWithDetails);
+// Get all Order records for the authenticated patient
+router.get('/', authenticatePatient, getPatientOrders);
 
-// Get all items in a specific order (order history, current order)
-router.get('/:orderId', authenticatePatient, getOrderItems);
-
-// Get all order items for authenticated patient (order history, cart)
-router.get('/', authenticatePatient, getAllOrderItems);
-
-// Get a specific order item by ID (for cart review)
-router.get('/item/:orderItemId', authenticatePatient, getOrderItemById);
-
-// Create new order item (for cart functionality)
-router.post('/', authenticatePatient, createOrderItem);
-
-// Update order item (for cart editing)
-router.put('/item/:orderItemId', authenticatePatient, updateOrderItem);
-
-// Delete order item (for cart removal)
-router.delete('/item/:orderItemId', authenticatePatient, deleteOrderItem);
+// Patient confirms receipt of a delivered order
+router.patch('/:orderId/confirm', authenticatePatient, confirmOrder);
 
 export default router;
