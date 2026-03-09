@@ -28,13 +28,25 @@ export const getOrders = async (req: Request, res: Response) => {
           0,
         ) || 0;
 
+      // Format diagnosis from object to string
+      let diagnosisString = 'No diagnosis provided';
+      if (order.Patient?.diagnosis && typeof order.Patient.diagnosis === 'object') {
+        const conditions = Object.entries(order.Patient.diagnosis)
+          .filter(([, value]) => value === true)
+          .map(([key]) => key.charAt(0).toUpperCase() + key.slice(1))
+          .join(', ');
+        if (conditions) {
+          diagnosisString = conditions;
+        }
+      }
+
       return {
         id: order.order_id,
         order_number: order.order_id.substring(0, 8).toUpperCase(),
         patient_name: order.Patient
           ? `${order.Patient.firstname} ${order.Patient.surname}`
           : 'Unknown',
-        patient_diagnosis: order.Patient?.diagnosis || 'No diagnosis provided',
+        patient_diagnosis: diagnosisString,
         created_at: order.order_date,
         amount: totalAmount,
         status: order.status,
@@ -63,12 +75,12 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
   const { status } = req.body;
 
   try {
-    // Convert status format: 'out_for_delivery' -> 'out for delivery'
-    const formattedStatus = status.replace(/_/g, ' ');
+    // // Convert status format: 'out_for_delivery' -> 'out for delivery'
+    // const formattedStatus = status.replaceAll(/_/g, ' ');
 
     const { data, error } = await supabase
       .from('Order')
-      .update({ status: formattedStatus })
+      .update({ status })
       .eq('order_id', id) // Ensure this is order_id in your DB
       .select();
 
