@@ -8,6 +8,7 @@ import { maintenanceRegistrationCode } from '../controllers/registration/mainten
 import { makeAnnouncement } from '../controllers/announcement/postAnnouncement.controller.ts';
 import { getAnnouncement } from '../controllers/announcement/getAnnouncement.controller.ts';
 import { alertMedication } from '../controllers/medication/alertMedication.controller.ts';
+import { getOrders, updateOrderStatus } from '../controllers/orders/order.controller.ts';
 
 const router = Router();
 
@@ -26,5 +27,9 @@ router.get('/announcements', authenticate, getAnnouncement);
 
 //eNav utility routes - Medications
 router.get('/medications/alerts', authenticate, alertMedication);
+
+//Orders
+router.patch('/orders/:id/status', authenticate, updateOrderStatus);
+router.get('/orders', authenticate, getOrders);
 
 export default router;
