@@ -6,7 +6,9 @@ export const getPatientOrders = asyncHandler('Failed to retrieve orders', async 
 
   const { data: orders, error } = await supabase
     .from('Order')
-    .select('order_id, patient_id, status, order_date, delivery_type, delivery_address, received_date, items:OrderItem(quantity, medication:Medication(name, dosage))')
+    .select(
+      'order_id, patient_id, status, order_date, delivery_type, delivery_address, received_date, items:OrderItem(quantity, medication:Medication(name, dosage))',
+    )
     .eq('patient_id', patientId)
     .order('order_date', { ascending: false });
 
@@ -14,7 +16,10 @@ export const getPatientOrders = asyncHandler('Failed to retrieve orders', async 
 
   const normalized = (orders ?? []).map((o) => {
     const itemsList = Array.isArray(o.items)
-      ? (o.items as unknown as Array<{ quantity: number; medication: { name: string; dosage: number | null } | null }>)
+      ? (o.items as unknown as Array<{
+          quantity: number;
+          medication: { name: string; dosage: number | null } | null;
+        }>)
       : [];
     const medication_names = itemsList
       .map((i) => {

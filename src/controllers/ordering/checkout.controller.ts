@@ -13,24 +13,18 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
   const deliveryType = req.body.delivery_type as 'delivery' | 'pickup';
 
   if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
-    return res
-      .status(400)
-      .json({ success: false, message: 'items must be a non-empty array' });
+    return res.status(400).json({ success: false, message: 'items must be a non-empty array' });
   }
 
   const parsedItems: Array<{ medication_id: number; quantity: number }> = [];
   for (const [index, raw] of req.body.items.entries()) {
     if (raw.medication_id == null || raw.quantity == null) {
-      return res
-        .status(400)
-        .json({ success: false, message: `Missing fields at index ${index}` });
+      return res.status(400).json({ success: false, message: `Missing fields at index ${index}` });
     }
     const medication_id = Number(raw.medication_id);
     const quantity = Number(raw.quantity);
     if (!Number.isInteger(medication_id) || !Number.isInteger(quantity) || quantity <= 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: `Invalid values at index ${index}` });
+      return res.status(400).json({ success: false, message: `Invalid values at index ${index}` });
     }
     parsedItems.push({ medication_id, quantity });
   }
@@ -57,7 +51,11 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
 
   const priceMap = new Map<number, number>();
   const stockMap = new Map<number, number>();
-  for (const m of medications as Array<{ medication_id: number; price: number; stock_qty: number }>) {
+  for (const m of medications as Array<{
+    medication_id: number;
+    price: number;
+    stock_qty: number;
+  }>) {
     if (m.price == null) {
       return res
         .status(400)

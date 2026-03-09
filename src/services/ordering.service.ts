@@ -1,10 +1,6 @@
 import { supabase } from '../config/db';
 import { ORDER_STATUS } from '../constants/orderStatus';
-import {
-  OrderItem,
-  Order,
-  CreateOrderDTO,
-} from '../types/ordering/orderItem.types';
+import { OrderItem, Order, CreateOrderDTO } from '../types/ordering/orderItem.types';
 
 export const createOrderService = async (
   patientId: string,
@@ -19,7 +15,8 @@ export const createOrderService = async (
         status: 'pending',
         order_date: new Date().toISOString(),
         delivery_type: data.delivery_type,
-        delivery_address: data.delivery_type === 'delivery' ? (data.delivery_address ?? null) : null,
+        delivery_address:
+          data.delivery_type === 'delivery' ? (data.delivery_address ?? null) : null,
       },
     ])
     .select()
