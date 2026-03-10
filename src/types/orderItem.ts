@@ -1,7 +1,7 @@
-import { Medication } from './medication';
+import { MedicationSummary } from './medication';
 
 export interface OrderItem {
   quantity: number;
   price: string | number;
-  Medication: Medication;
+  Medication: MedicationSummary;
 }
