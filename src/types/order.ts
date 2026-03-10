@@ -7,7 +7,7 @@ export interface Order {
   received_date: string | null;
   status: string;
   delivery_type: string;
-  delivery_address: string;
+  delivery_address: string | null;
   Patient: Patient;
   OrderItem: OrderItem[];
 }
