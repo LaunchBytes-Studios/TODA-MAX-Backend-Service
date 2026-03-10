@@ -12,7 +12,7 @@ export const createOrderService = async (
     .insert([
       {
         patient_id: patientId,
-        status: 'pending',
+        status: ORDER_STATUS.PENDING,
         order_date: new Date().toISOString(),
         delivery_type: data.delivery_type,
         delivery_address:

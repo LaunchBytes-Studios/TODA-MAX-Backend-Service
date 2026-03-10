@@ -6,7 +6,7 @@ export interface OrderItem {
   price: number;
   medication?: {
     name: string;
-    type: string;
+    dosage: number | null;
   };
 }
 

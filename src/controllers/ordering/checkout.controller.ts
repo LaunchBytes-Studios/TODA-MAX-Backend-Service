@@ -16,7 +16,7 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
     return res.status(400).json({ success: false, message: 'items must be a non-empty array' });
   }
 
-  const parsedItems: Array<{ medication_id: number; quantity: number }> = [];
+  const rawParsedItems: Array<{ medication_id: number; quantity: number }> = [];
   for (const [index, raw] of req.body.items.entries()) {
     if (raw.medication_id == null || raw.quantity == null) {
       return res.status(400).json({ success: false, message: `Missing fields at index ${index}` });
@@ -26,8 +26,21 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
     if (!Number.isInteger(medication_id) || !Number.isInteger(quantity) || quantity <= 0) {
       return res.status(400).json({ success: false, message: `Invalid values at index ${index}` });
     }
-    parsedItems.push({ medication_id, quantity });
+    rawParsedItems.push({ medication_id, quantity });
   }
+
+  // Aggregate quantities per medication_id so duplicate entries cannot bypass stock validation
+  const aggregatedMap = new Map<number, number>();
+  for (const item of rawParsedItems) {
+    aggregatedMap.set(
+      item.medication_id,
+      (aggregatedMap.get(item.medication_id) ?? 0) + item.quantity,
+    );
+  }
+  const parsedItems = Array.from(aggregatedMap.entries()).map(([medication_id, quantity]) => ({
+    medication_id,
+    quantity,
+  }));
 
   // prices and stock come from DB, not the client
   const uniqueIds = [...new Set(parsedItems.map((i) => i.medication_id))];
