@@ -1,6 +1,7 @@
-// backend/controllers/orders/order.controller.ts
 import { supabase } from '../../config/db';
 import { Request, Response } from 'express';
+import { Order } from '../../types/order';
+import { OrderItem } from '../../types/orderItem';
 
 export const getOrders = async (req: Request, res: Response) => {
   try {
@@ -22,10 +23,10 @@ export const getOrders = async (req: Request, res: Response) => {
 
     if (error) return res.status(400).json({ message: error.message });
 
-    const formattedOrders = data.map((order: any) => {
+    const formattedOrders = data.map((order: Order) => {
       const totalAmount =
         order.OrderItem?.reduce(
-          (acc: number, item: any) => acc + Number(item.price) * item.quantity,
+          (acc: number, item: OrderItem) => acc + Number(item.price) * item.quantity,
           0,
         ) || 0;
 
@@ -55,7 +56,7 @@ export const getOrders = async (req: Request, res: Response) => {
         delivery_type: order.delivery_type,
         delivery_address: order.delivery_address || 'No address provided',
         items:
-          order.OrderItem?.map((item: any) => ({
+          order.OrderItem?.map((item: OrderItem) => ({
             name: item.Medication?.name,
             description: item.Medication?.description,
             quantity: item.quantity,
@@ -66,29 +67,26 @@ export const getOrders = async (req: Request, res: Response) => {
 
     return res.status(200).json(formattedOrders);
   } catch (err) {
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: 'Internal Server Error', details: err });
   }
 };
 
-// Add this new function to your controller file
 export const updateOrderStatus = async (req: Request, res: Response) => {
-  // Ensure "id" matches the ":id" in the router definition
   const { id } = req.params;
   const { status } = req.body;
 
   try {
-    // Status should be one of: pending, preparing, ready, completed, rejected
+    // Status
     const { data, error } = await supabase
       .from('Order')
       .update({ status })
-      .eq('order_id', id) // Ensure this is order_id in your DB
+      .eq('order_id', id)
       .select();
 
     if (error) return res.status(400).json({ message: error.message });
 
-    // IMPORTANT: Always send a response so the frontend doesn't hang
     return res.status(200).json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: 'Internal Server Error', details: err });
   }
 };
