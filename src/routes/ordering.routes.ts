@@ -1,7 +1,7 @@
 import express from 'express';
-import { checkout } from '../controllers/ordering/checkout.controller';
-import { confirmOrder } from '../controllers/ordering/confirmOrder.controller';
-import { getPatientOrders } from '../controllers/ordering/getOrders.controller';
+import { checkout } from '../controllers/patient-orders/checkout.controller';
+import { confirmOrder } from '../controllers/patient-orders/confirmOrder.controller';
+import { getPatientOrders } from '../controllers/patient-orders/getOrders.controller';
 import { authenticatePatient } from '../middleware/auth';
 
 const router = express.Router();
