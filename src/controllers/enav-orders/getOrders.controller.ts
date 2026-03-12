@@ -28,7 +28,6 @@ export const getOrders = async (req: Request, res: Response) => {
       `,
         { count: 'exact' },
       )
-      .eq('delivery_type', 'delivery')
       .order('order_date', { ascending: false })
       .range(offset, offset + limit - 1);
 

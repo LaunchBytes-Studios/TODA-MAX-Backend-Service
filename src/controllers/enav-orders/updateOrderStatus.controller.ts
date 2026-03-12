@@ -26,9 +26,8 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
 
     const updateData: { status: string; received_date?: string } = { status: status.toLowerCase() };
 
-    // Trigger on "completed" if it hasn't been deducted yet
-    if (status.toLowerCase() === 'completed' && !currentOrder.received_date) {
-      console.log('✅ Condition Met: Order Completed - Deducting Stock...');
+    if (status.toLowerCase() === 'preparing') {
+      console.log('✅ Condition Met: Order Ready - Deducting Stock...');
 
       updateData.received_date = new Date().toISOString();
 
