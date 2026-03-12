@@ -96,13 +96,11 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { status } = req.body;
 
-  const ALLOWED_STATUSES = ['pending', 'preparing', 'ready', 'completed', 'rejected'];
-
   try {
-    if (!status) return res.status(400).json({ message: 'Status is required' });
-    const newStatus = status.toLowerCase();
+    console.log(`--- Processing Status Update for Order: ${id} ---`);
 
-    // 1. Fetch the order and items first
+    // 1. Fetch Order with Items
+    // NOTE: Check if 'OrderItem' needs to be 'order_item' based on your Supabase relationship name
     const { data: currentOrder, error: fetchError } = await supabase
       .from('Order')
       .select(`*, OrderItem ( medication_id, quantity )`)
@@ -110,68 +108,71 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
       .single();
 
     if (fetchError || !currentOrder) {
+      console.error('Fetch Error:', fetchError);
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Prepare update object
-    const updateData: any = { status: newStatus };
+    console.log(`Current Status: ${currentOrder.status}, New Status: ${status}`);
+    console.log(`Existing received_date: ${currentOrder.received_date}`);
 
-    // 2. Logic: If moving to 'completed', set the received_date
-    if (newStatus === 'completed' && !currentOrder.received_date) {
+    const updateData: any = { status: status.toLowerCase() };
+
+    // Trigger on "completed" if it hasn't been deducted yet
+    if (status.toLowerCase() === 'completed' && !currentOrder.received_date) {
+      console.log('✅ Condition Met: Order Completed - Deducting Stock...');
+
       updateData.received_date = new Date().toISOString();
-    }
 
-    // 3. TRIGGER INVENTORY DEDUCTION
-    // We check: is the updated status 'completed' OR does the record now have a received_date?
-    // We also ensure we only deduct if it hasn't been received before (to prevent double deduction)
-    if (!currentOrder.received_date) {
-      console.log('Order received! Deducting inventory...');
+      const items = currentOrder.OrderItem;
+      if (!items || items.length === 0) {
+        console.warn('⚠️ No items found in this order. Skipping deduction.');
+      } else {
+        for (const item of items) {
+          console.log(`Processing Item: MedID ${item.medication_id}, Qty ${item.quantity}`);
 
-      if (currentOrder.OrderItem && currentOrder.OrderItem.length > 0) {
-        for (const item of currentOrder.OrderItem) {
-          // Fetch current stock
-          const { data: medication } = await supabase
+          // Get current stock
+          const { data: med, error: medError } = await supabase
             .from('Medication')
             .select('stock_qty')
             .eq('medication_id', item.medication_id)
             .single();
 
-          if (medication) {
-            const currentStock = medication.stock_qty || 0;
-            const newStock = Math.max(0, currentStock - item.quantity);
+          if (medError || !med) {
+            console.error(`❌ Could not find Medication ${item.medication_id}:`, medError);
+            continue;
+          }
 
-            // Update Medication Table
-            await supabase
-              .from('Medication')
-              .update({ stock_qty: newStock })
-              .eq('medication_id', item.medication_id);
+          const oldStock = med.stock_qty || 0;
+          const newStock = Math.max(0, oldStock - item.quantity);
 
-            console.log(
-              `Deducted ${item.quantity} from Med ID ${item.medication_id}. New stock: ${newStock}`,
-            );
+          console.log(`Updating Stock: ${oldStock} -> ${newStock}`);
+
+          // UPDATE THE MEDICATION TABLE
+          const { error: invError } = await supabase
+            .from('Medication')
+            .update({ stock_qty: newStock })
+            .eq('medication_id', item.medication_id);
+
+          if (invError) {
+            console.error(`❌ INVENTORY UPDATE FAILED for Med ${item.medication_id}:`, invError);
+          } else {
+            console.log(`Successfully updated inventory for Med ${item.medication_id}`);
           }
         }
       }
     }
 
-    // 4. Update the Order record
-    const { data, error: updateError } = await supabase
+    // Update the Order status at the end
+    const { error: finalError } = await supabase
       .from('Order')
       .update(updateData)
-      .eq('order_id', id)
-      .select();
+      .eq('order_id', id);
 
-    if (updateError) throw updateError;
+    if (finalError) throw finalError;
 
-    return res.status(200).json({
-      success: true,
-      message: updateData.received_date
-        ? 'Order completed and inventory deducted'
-        : 'Status updated',
-      data,
-    });
+    return res.status(200).json({ success: true, message: 'Updated successfully' });
   } catch (err) {
-    console.error('Error updating status:', err);
+    console.error('CRITICAL ERROR:', err);
     return res.status(500).json({ message: 'Internal Server Error' });
   }
 };
