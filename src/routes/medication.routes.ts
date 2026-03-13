@@ -9,8 +9,11 @@ import {
   getMedicationStats,
   searchMedications,
 } from '../controllers/medication/medication.controller';
+import { authenticate } from '../middleware/enav.middleware';
 
 const router = express.Router();
+router.use(authenticate);
+
 router.get('/', getAllMedications);
 router.get('/stats', getMedicationStats);
 router.get('/search', searchMedications);

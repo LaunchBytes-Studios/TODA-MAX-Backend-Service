@@ -9,6 +9,10 @@ import { makeAnnouncement } from '../controllers/announcement/postAnnouncement.c
 import { getAnnouncement } from '../controllers/announcement/getAnnouncement.controller.ts';
 import { alertMedication } from '../controllers/medication/alertMedication.controller.ts';
 import { getOrders, updateOrderStatus } from '../controllers/enav-orders/order.controller.ts';
+import {
+  finalizeRewardCode,
+  verifyRewardCode,
+} from '../controllers/reward/rewardVerification.controller.ts';
 
 const router = Router();
 
@@ -27,6 +31,10 @@ router.get('/announcements', authenticate, getAnnouncement);
 
 //eNav utility routes - Medications
 router.get('/medications/alerts', authenticate, alertMedication);
+
+//eNav utility routes - Reward Codes
+router.get('/rewardCodes/verify', authenticate, verifyRewardCode);
+router.post('/rewardCodes/finalize', authenticate, finalizeRewardCode);
 
 //Orders
 router.patch('/orders/:id/status', authenticate, updateOrderStatus);
