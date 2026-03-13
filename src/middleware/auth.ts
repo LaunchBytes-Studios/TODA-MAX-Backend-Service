@@ -29,14 +29,7 @@ export const authenticatePatient = (
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    const { id } = req.params;
-
-    // Authorization: Check if the token belongs to the ID being accessed
-    if (id && decoded.userId !== id) {
-      return res.status(403).json({ error: 'Forbidden: Access denied' });
-    }
-
-    req.user = decoded; // ✅ strongly typed now
+    req.user = decoded; // ✅ only set the user
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Unauthorized', details: err });
