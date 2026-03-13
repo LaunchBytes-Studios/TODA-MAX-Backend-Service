@@ -12,15 +12,14 @@ import {
 import { authenticate } from '../middleware/enav.middleware';
 
 const router = express.Router();
-router.use(authenticate);
 
 router.get('/', getAllMedications);
 router.get('/stats', getMedicationStats);
 router.get('/search', searchMedications);
 router.get('/:id', getMedicationById);
-router.post('/', createMedication);
-router.put('/:id', updateMedication);
-router.patch('/:id/stock', updateMedicationStock);
-router.delete('/:id', deleteMedication);
+router.post('/', authenticate, createMedication);
+router.put('/:id',authenticate, updateMedication);
+router.patch('/:id/stock', authenticate, updateMedicationStock);
+router.delete('/:id', authenticate, deleteMedication);
 
 export default router;

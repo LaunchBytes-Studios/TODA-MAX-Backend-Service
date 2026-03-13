@@ -1,9 +1,8 @@
 import express, { NextFunction, Request, Response } from 'express';
 import patientRoutes from './routes/patient.routes';
 import enavRoutes from './routes/enav.routes';
-import medicationRoutes from './routes/medication.routes'; // NEW
+import medicationRoutes from './routes/medication.routes'; 
 import rewardRoutes from './routes/reward.routes';
-import medicationRoutes from './routes/medication.routes';
 import orderingRoutes from './routes/ordering.routes';
 import cors from 'cors';
 
