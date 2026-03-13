@@ -38,6 +38,7 @@ app.use('/auth', enavRoutes);
 app.use('/rewards', rewardRoutes);
 app.use('/medications', medicationRoutes);
 app.use('/orders', orderingRoutes);
+app.use('/trackedmedications', trackedMedicationRoutes);
 
 /* -------------------------
    404 handler
@@ -60,8 +61,6 @@ app.use((err: Error & { type?: string }, _req: Request, res: Response, _next: Ne
 
   res.status(500).json({ success: false, message: 'Internal server error' });
 });
-app.use('/medications', medicationRoutes);
-app.use('/trackedmedications', trackedMedicationRoutes);
 
 /* -------------------------
    Server
