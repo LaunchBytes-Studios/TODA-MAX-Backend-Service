@@ -1,9 +1,10 @@
-// server.ts
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import patientRoutes from './routes/patient.routes';
 import enavRoutes from './routes/enav.routes';
 import medicationRoutes from './routes/medication.routes'; // NEW
 import rewardRoutes from './routes/reward.routes';
+import medicationRoutes from './routes/medication.routes';
+import orderingRoutes from './routes/ordering.routes';
 import cors from 'cors';
 
 const app = express();
@@ -36,6 +37,30 @@ app.use('/patients', patientRoutes);
 app.use('/auth', enavRoutes);
 app.use('/medications', medicationRoutes); // NEW
 app.use('/rewards', rewardRoutes);
+app.use('/medications', medicationRoutes);
+app.use('/orders', orderingRoutes);
+
+/* -------------------------
+   404 handler
+--------------------------*/
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ success: false, message: 'Route not found' });
+});
+
+/* -------------------------
+   Global error handler
+--------------------------*/
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: Error & { type?: string }, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[Unhandled error]', err);
+
+  // Express throws this when the request body is malformed JSON
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ success: false, message: 'Invalid JSON in request body' });
+  }
+
+  res.status(500).json({ success: false, message: 'Internal server error' });
+});
 
 /* -------------------------
    Server
