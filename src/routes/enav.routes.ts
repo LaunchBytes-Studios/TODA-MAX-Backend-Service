@@ -12,6 +12,7 @@ import {
   finalizeRewardCode,
   verifyRewardCode,
 } from '../controllers/reward/rewardVerification.controller.ts';
+import { getOrders, updateOrderStatus } from '../controllers/enav-orders/order.controller.ts';
 
 const router = Router();
 
@@ -34,5 +35,8 @@ router.get('/medications/alerts', authenticate, alertMedication);
 //eNav utility routes - Reward Codes
 router.get('/rewardCodes/verify', authenticate, verifyRewardCode);
 router.post('/rewardCodes/finalize', authenticate, finalizeRewardCode);
+//Orders
+router.patch('/orders/:id/status', authenticate, updateOrderStatus);
+router.get('/orders', authenticate, getOrders);
 
 export default router;
