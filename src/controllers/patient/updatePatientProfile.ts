@@ -9,7 +9,7 @@ export const updatePatientProfile = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  if ( philhealthNumber &&  philhealthNumber.length < 12) {
+  if (philhealthNumber && philhealthNumber.length < 12) {
     return res.status(400).json({ error: 'PhilHealth number must be 12 digits long' });
   }
 

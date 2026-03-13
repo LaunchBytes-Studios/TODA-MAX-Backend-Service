@@ -2,7 +2,8 @@
 import express, { Request, Response } from 'express';
 import patientRoutes from './routes/patient.routes';
 import enavRoutes from './routes/enav.routes';
-import medicationRoutes from './routes/medication.routes'; // NEW
+import medicationRoutes from './routes/medication.routes';
+import trackedMedicationRoutes from './routes/trackedmedication.routes';
 import cors from 'cors';
 
 const app = express();
@@ -33,7 +34,8 @@ app.get('/', (req: Request, res: Response) => {
 app.use('/enavigator', enavRoutes);
 app.use('/patients', patientRoutes);
 app.use('/auth', enavRoutes);
-app.use('/medications', medicationRoutes); // NEW
+app.use('/medications', medicationRoutes);
+app.use('/trackedmedications', trackedMedicationRoutes);
 
 /* -------------------------
    Server
