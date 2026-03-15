@@ -18,7 +18,7 @@ router.get('/stats', getMedicationStats);
 router.get('/search', searchMedications);
 router.get('/:id', getMedicationById);
 router.post('/', authenticate, createMedication);
-router.put('/:id',authenticate, updateMedication);
+router.put('/:id', authenticate, updateMedication);
 router.patch('/:id/stock', authenticate, updateMedicationStock);
 router.delete('/:id', authenticate, deleteMedication);
 
