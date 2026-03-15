@@ -13,33 +13,19 @@ export const getDailyMedications = async (req: Request, res: Response) => {
     const patientId = req.user?.userId;
     const { date } = req.query;
 
-    if (!patientId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    if (!date || typeof date !== 'string') {
+    if (!patientId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!date || typeof date !== 'string')
       return res.status(400).json({ error: 'Date is required' });
-    }
 
     const requestDate = new Date(date);
-
-    const requestDay = requestDate.getUTCDate();
-    const requestMonth = requestDate.getUTCMonth();
-    const requestYear = requestDate.getUTCFullYear();
-
     const now = new Date();
 
-    const todayDay = now.getUTCDate();
-    const todayMonth = now.getUTCMonth();
-    const todayYear = now.getUTCFullYear();
+    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
-    const isPast =
-      requestYear < todayYear ||
-      (requestYear === todayYear && requestMonth < todayMonth) ||
-      (requestYear === todayYear && requestMonth === todayMonth && requestDay < todayDay);
+    const isPast = requestDate < todayUTC;
 
     /**
-     * Step 1 — fetch existing tracking day
+     * STEP 1 — fetch existing tracking day
      */
     const { data: existingTrackingDay, error: trackingDayError } = await supabase
       .from('MedicationTrackingDay')
@@ -48,46 +34,17 @@ export const getDailyMedications = async (req: Request, res: Response) => {
       .eq('date', date)
       .single();
 
-    if (trackingDayError && trackingDayError.code !== 'PGRST116') {
-      throw trackingDayError;
-    }
+    if (trackingDayError && trackingDayError.code !== 'PGRST116') throw trackingDayError;
 
     /**
-     * Step 2 — past date without tracking day → dummy missed doses
+     * STEP 2 — past date without tracking day → no records
      */
-    if (isPast && !existingTrackingDay) {
-      const { data: meds, error: medsError } = await supabase
-        .from('TrackedMedication')
-        .select('id, name, schedules:TrackedMedicationSchedule(time)')
-        .eq('patient_id', patientId)
-        .eq('is_active', true)
-        .returns<MedicationWithSchedules[]>();
-
-      if (medsError) throw medsError;
-
-      const dummyDoses: DailyMedicationDoseDTO[] = [];
-
-      meds?.forEach((med, medIndex) => {
-        med.schedules.forEach((schedule, scheduleIndex) => {
-          dummyDoses.push({
-            dose_id: `${medIndex}-${scheduleIndex}`,
-            medication_id: med.id,
-            name: med.name,
-            time: schedule.time,
-            taken_at: null,
-            status: 'missed',
-          });
-        });
-      });
-
-      return res.json({ medications: dummyDoses });
-    }
+    if (isPast && !existingTrackingDay) return res.json({ medications: [] });
 
     /**
-     * Step 3 — create tracking day if missing
+     * STEP 3 — create tracking day if missing
      */
-    let newTrackingDay = existingTrackingDay;
-
+    let trackingDay = existingTrackingDay;
     if (!existingTrackingDay) {
       const { data, error } = await supabase
         .from('MedicationTrackingDay')
@@ -96,14 +53,13 @@ export const getDailyMedications = async (req: Request, res: Response) => {
         .single();
 
       if (error) throw error;
-
-      newTrackingDay = data;
+      trackingDay = data;
     }
 
-    const trackingDayId = newTrackingDay.id;
+    const trackingDayId = trackingDay.id;
 
     /**
-     * Step 4 — fetch existing doses
+     * STEP 4 — fetch existing doses using scheduled_time
      */
     const { data: existingDoses, error: doseError } = await supabase
       .from('TrackedMedicationDayDose')
@@ -112,8 +68,8 @@ export const getDailyMedications = async (req: Request, res: Response) => {
         id,
         status,
         taken_at,
+        scheduled_time,
         tracked_medication_id,
-        schedule:TrackedMedicationSchedule(time),
         medication:TrackedMedication(name)
       `,
       )
@@ -123,29 +79,23 @@ export const getDailyMedications = async (req: Request, res: Response) => {
     if (doseError) throw doseError;
 
     if (existingDoses && existingDoses.length > 0) {
-      const now = new Date();
-
+      // Update missed doses for today/past only
       let currentDoseIndex = -1;
 
       const sortedDoses = [...existingDoses].sort((a, b) =>
-        a.schedule.time.localeCompare(b.schedule.time),
+        a.scheduled_time.localeCompare(b.scheduled_time),
       );
 
       sortedDoses.forEach((dose, index) => {
-        const [hour, minute] = dose.schedule.time.split(':').map(Number);
-
+        const [hour, minute] = dose.scheduled_time.split(':').map(Number);
         const doseTime = new Date(date);
         doseTime.setUTCHours(hour, minute, 0, 0);
-
         if (doseTime <= now) currentDoseIndex = index;
       });
 
       const missedDoseIds: string[] = [];
-
       sortedDoses.forEach((dose, index) => {
-        if (index < currentDoseIndex && dose.status === 'pending') {
-          missedDoseIds.push(dose.id);
-        }
+        if (index < currentDoseIndex && dose.status === 'pending') missedDoseIds.push(dose.id);
       });
 
       if (missedDoseIds.length > 0) {
@@ -157,9 +107,7 @@ export const getDailyMedications = async (req: Request, res: Response) => {
         if (updateError) throw updateError;
 
         sortedDoses.forEach((dose) => {
-          if (missedDoseIds.includes(dose.id)) {
-            dose.status = 'missed';
-          }
+          if (missedDoseIds.includes(dose.id)) dose.status = 'missed';
         });
       }
 
@@ -167,7 +115,7 @@ export const getDailyMedications = async (req: Request, res: Response) => {
         dose_id: dose.id,
         medication_id: dose.tracked_medication_id,
         name: dose.medication.name,
-        time: dose.schedule.time,
+        time: dose.scheduled_time,
         taken_at: dose.taken_at ? new Date(dose.taken_at).toISOString() : null,
         status: dose.status,
       }));
@@ -176,7 +124,7 @@ export const getDailyMedications = async (req: Request, res: Response) => {
     }
 
     /**
-     * Step 5 — fetch active meds + schedules
+     * STEP 5 — fetch active medications + schedules
      */
     const { data: meds, error: medsError } = await supabase
       .from('TrackedMedication')
@@ -188,10 +136,9 @@ export const getDailyMedications = async (req: Request, res: Response) => {
     if (medsError) throw medsError;
 
     /**
-     * Step 6 — generate doses
+     * STEP 6 — generate doses using scheduled_time snapshot
      */
     const doseRows: CreateDoseRow[] = [];
-
     meds?.forEach((med) => {
       med.schedules.forEach((schedule) => {
         if (!schedule.id) return;
@@ -200,14 +147,13 @@ export const getDailyMedications = async (req: Request, res: Response) => {
           medication_tracking_day_id: trackingDayId,
           tracked_medication_id: med.id,
           tracked_medication_schedule_id: schedule.id,
+          scheduled_time: schedule.time, // ⬅ use schedule snapshot
           status: 'pending',
         });
       });
     });
 
-    if (doseRows.length === 0) {
-      return res.json({ medications: [] });
-    }
+    if (doseRows.length === 0) return res.json({ medications: [] });
 
     const { data: insertedDoses, error: insertError } = await supabase
       .from('TrackedMedicationDayDose')
@@ -217,8 +163,8 @@ export const getDailyMedications = async (req: Request, res: Response) => {
         id,
         status,
         taken_at,
+        scheduled_time,
         tracked_medication_id,
-        schedule:TrackedMedicationSchedule(time),
         medication:TrackedMedication(name)
       `,
       )
@@ -231,7 +177,7 @@ export const getDailyMedications = async (req: Request, res: Response) => {
         dose_id: dose.id,
         medication_id: dose.tracked_medication_id,
         name: dose.medication.name,
-        time: dose.schedule.time,
+        time: dose.scheduled_time,
         taken_at: dose.taken_at ? new Date(dose.taken_at).toISOString() : null,
         status: dose.status,
       })) ?? [];

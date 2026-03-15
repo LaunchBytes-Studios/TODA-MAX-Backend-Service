@@ -23,6 +23,8 @@ export interface TrackedMedicationRow {
   dosage: string | null;
   type: string | null;
   quantity: number | null;
+  medication_id: number | null;
+  is_active: boolean;
 
   schedules: TrackedMedicationScheduleRow[];
 }
@@ -32,6 +34,7 @@ export interface TrackedMedicationDayDoseRow {
   status: DoseStatus;
   tracked_medication_id: UUID;
   medication_tracking_day_id: UUID;
+  scheduled_time: string;
 }
 
 export interface TrackedMedicationPatientRow {
@@ -69,6 +72,7 @@ export interface TrackedMedicationDayDose {
   tracked_medication_schedule_id: UUID;
   status: DoseStatus;
   taken_at: string | null;
+  scheduled_time: string;
 }
 
 export interface MedicationWithSchedules {
@@ -86,6 +90,7 @@ export interface ExistingDoseRow {
   status: DoseStatus;
   taken_at: string | null;
   tracked_medication_id: UUID;
+  scheduled_time: string;
 
   schedule: {
     time: string;
@@ -104,6 +109,8 @@ export interface TrackedMedicationDTO {
   dosage: string | null;
   type: string | null;
   quantity: number | null;
+  medication_id: number | null;
+  is_active: boolean;
 
   schedules: string[]; // sorted time strings
 }
@@ -128,4 +135,5 @@ export interface CreateDoseRow {
   tracked_medication_id: UUID;
   tracked_medication_schedule_id: UUID;
   status: 'pending';
+  scheduled_time: string;
 }

@@ -20,6 +20,8 @@ export const getTrackedMedications = async (req: Request, res: Response) => {
         dosage,
         type,
         quantity,
+        medication_id,
+        is_active,
         schedules:TrackedMedicationSchedule(time)
       `,
       )
@@ -36,6 +38,8 @@ export const getTrackedMedications = async (req: Request, res: Response) => {
         dosage: med.dosage,
         type: med.type,
         quantity: med.quantity,
+        medication_id: med.medication_id,
+        is_active: med.is_active,
 
         // schedule objects → sorted time array
         schedules: (med.schedules ?? [])
