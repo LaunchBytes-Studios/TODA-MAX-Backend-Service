@@ -21,14 +21,6 @@ export const getPatientOrders = asyncHandler('Failed to retrieve orders', async 
           medication: { name: string; dosage: number | null } | null;
         }>)
       : [];
-    const medication_names = itemsList
-      .map((i) => {
-        const med = i.medication;
-        if (!med?.name) return null;
-        const dosageStr = med.dosage ? ` (${med.dosage}mg)` : '';
-        return `${med.name}${dosageStr}`;
-      })
-      .filter((name): name is string => !!name);
 
     return {
       order_id: o.order_id as string,
@@ -38,8 +30,8 @@ export const getPatientOrders = asyncHandler('Failed to retrieve orders', async 
       delivery_type: o.delivery_type as string,
       delivery_address: o.delivery_address as string | null,
       received_date: (o.received_date as string | null) ?? null,
-      total_items: itemsList.length,
-      medication_names,
+      total_items: itemsList.reduce((sum, item) => sum + (item.quantity || 0), 0),
+      items: itemsList,
     };
   });
 

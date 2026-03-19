@@ -96,20 +96,27 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
 
   let deliveryAddress: string | undefined;
   if (deliveryType === 'delivery') {
-    const { data: patient, error: patientErr } = await supabase
-      .from('Patient')
-      .select('address')
-      .eq('patient_id', patientId)
-      .single();
+    const providedAddress =
+      typeof req.body.delivery_address === 'string' ? req.body.delivery_address.trim() : '';
 
-    if (patientErr || !patient?.address) {
-      return res.status(400).json({
-        success: false,
-        message:
-          'No address on file for this patient. Please update your profile before placing a delivery order.',
-      });
+    if (providedAddress) {
+      deliveryAddress = providedAddress;
+    } else {
+      const { data: patient, error: patientErr } = await supabase
+        .from('Patient')
+        .select('address')
+        .eq('patient_id', patientId)
+        .single();
+
+      if (patientErr || !patient?.address) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'No address provided and no address on file. Please provide a delivery address.',
+        });
+      }
+      deliveryAddress = patient.address as string;
     }
-    deliveryAddress = patient.address as string;
   }
 
   const result = await createOrderService(patientId, {
