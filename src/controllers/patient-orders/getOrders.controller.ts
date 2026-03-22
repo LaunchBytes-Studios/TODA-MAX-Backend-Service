@@ -1,5 +1,5 @@
 import { supabase } from '../../config/db';
-import { asyncHandler, requirePatientId } from '../../utils/helpers';
+import { asyncHandler, requirePatientId, sumItemQuantities } from '../../utils/helpers';
 
 export const getPatientOrders = asyncHandler('Failed to retrieve orders', async (req, res) => {
   const patientId = requirePatientId(req);
@@ -30,7 +30,7 @@ export const getPatientOrders = asyncHandler('Failed to retrieve orders', async 
       delivery_type: o.delivery_type as string,
       delivery_address: o.delivery_address as string | null,
       received_date: (o.received_date as string | null) ?? null,
-      total_items: itemsList.reduce((sum, item) => sum + (item.quantity || 0), 0),
+      total_items: sumItemQuantities(itemsList),
       items: itemsList,
     };
   });

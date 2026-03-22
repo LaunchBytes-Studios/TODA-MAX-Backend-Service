@@ -31,3 +31,12 @@ export const requirePatientId = (req: Request): string => {
 // Express params can be string | string[] depending on route config.
 export const parseId = (idParam: string | string[]): string =>
   Array.isArray(idParam) ? idParam[0] : idParam;
+
+export const sumItemQuantities = (items: Array<{ quantity: unknown }>): number =>
+  items.reduce((sum, item) => {
+    const rawQuantity = item.quantity ?? 0;
+    const numericQuantity =
+      typeof rawQuantity === 'string' ? Number(rawQuantity) : (rawQuantity as number);
+
+    return sum + (Number.isFinite(numericQuantity) ? numericQuantity : 0);
+  }, 0);
