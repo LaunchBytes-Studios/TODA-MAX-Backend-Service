@@ -1,7 +1,8 @@
 import express, { NextFunction, Request, Response } from 'express';
 import patientRoutes from './routes/patient.routes';
 import enavRoutes from './routes/enav.routes';
-import medicationRoutes from './routes/medication.routes'; 
+import trackedMedicationRoutes from './routes/trackedmedication.routes';
+import medicationRoutes from './routes/medication.routes';
 import rewardRoutes from './routes/reward.routes';
 import orderingRoutes from './routes/ordering.routes';
 import cors from 'cors';
@@ -34,10 +35,10 @@ app.get('/', (req: Request, res: Response) => {
 app.use('/enavigator', enavRoutes);
 app.use('/patients', patientRoutes);
 app.use('/auth', enavRoutes);
-app.use('/medications', medicationRoutes); // NEW
 app.use('/rewards', rewardRoutes);
 app.use('/medications', medicationRoutes);
 app.use('/orders', orderingRoutes);
+app.use('/trackedmedications', trackedMedicationRoutes);
 
 /* -------------------------
    404 handler
