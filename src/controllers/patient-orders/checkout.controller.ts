@@ -1,6 +1,6 @@
 import { supabase } from '../../config/db';
 import { createOrderService } from '../../services/ordering.service';
-import { asyncHandler, requirePatientId } from '../../utils/helpers';
+import { asyncHandler, requirePatientId, sumItemQuantities } from '../../utils/helpers';
 
 export const checkout = asyncHandler('Failed to create order', async (req, res) => {
   const patientId = requirePatientId(req);
@@ -121,6 +121,10 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
   return res.status(201).json({
     success: true,
     message: 'Order and items created successfully',
-    data: { order: result.order, items: result.items, total_items: result.items.length },
+    data: {
+      order: result.order,
+      items: result.items,
+      total_items: sumItemQuantities(result.items),
+    },
   });
 });
