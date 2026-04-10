@@ -7,8 +7,18 @@ const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const isPhone = (value: string) => /^\+?[1-9]\d{7,14}$/.test(value); // E.164-ish format
 
 export const registerPatient = async (req: Request, res: Response) => {
-  const { firstname, surname, birthday, contact, address, diagnosis, pin, registrationCode, sex } =
-    req.body ?? {};
+  const {
+    firstname,
+    surname,
+    birthday,
+    contact,
+    address,
+    diagnosis,
+    philhealth_num,
+    pin,
+    registrationCode,
+    sex,
+  } = req.body ?? {};
 
   if (
     !contact ||
@@ -113,6 +123,7 @@ export const registerPatient = async (req: Request, res: Response) => {
       diagnosis,
       birthday,
       pin_hash,
+      philhealth_num,
     });
 
     if (patientError) {
