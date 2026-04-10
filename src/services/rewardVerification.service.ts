@@ -7,7 +7,7 @@ type RewardTransactionRow = {
   status: string | null;
   patient_id: string | null;
   enav_id: string | null;
-  trans_date: string | null;
+  created_at: string | null;
   reward_id: number | null;
 };
 
@@ -20,7 +20,7 @@ export type RewardVerificationPayload = {
   patientName: string;
   rewardId: number | null;
   rewardName: string;
-  transDate: string | null;
+  createdAt: string | null;
   validatedByEnavId: string | null;
   isValid: boolean;
   isFinalized: boolean;
@@ -44,9 +44,9 @@ const getLatestTransactionByCode = async (code: string): Promise<RewardTransacti
 
   const { data, error } = await supabase
     .from('RewardTransaction')
-    .select('trans_id, points, code, status, patient_id, enav_id, trans_date, reward_id')
+    .select('trans_id, points, code, status, patient_id, enav_id, created_at, reward_id')
     .eq('code', normalizedCode)
-    .order('trans_date', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1);
 
   if (error) {
@@ -118,7 +118,7 @@ const buildVerificationPayload = async (
     patientName,
     rewardId: transaction.reward_id,
     rewardName,
-    transDate: transaction.trans_date,
+    createdAt: transaction.created_at,
     validatedByEnavId: transaction.enav_id,
     isValid,
     isFinalized,
@@ -164,10 +164,9 @@ export const finalizeRewardCodeService = async (
     .update({
       status: 'claimed',
       enav_id: enavId ?? transaction.enav_id,
-      trans_date: new Date().toISOString(),
     })
     .eq('trans_id', transaction.trans_id)
-    .select('trans_id, points, code, status, patient_id, enav_id, trans_date, reward_id')
+    .select('trans_id, points, code, status, patient_id, enav_id, created_at, reward_id')
     .single();
 
   if (error) {
