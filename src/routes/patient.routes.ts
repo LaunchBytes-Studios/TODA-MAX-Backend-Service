@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { registerPatient } from '../controllers/patient/registerPatient';
 import { loginPatient } from '../controllers/patient/loginPatient';
+import { awardDailyUsagePoints } from '../controllers/patient/awardDailyUsagePoints';
 import { updatePatientProfile } from '../controllers/patient/updatePatientProfile';
 import { updateAvatar } from '../controllers/patient/updateAvatar';
 import { updatePin } from '../controllers/patient/updatePin';
@@ -17,6 +18,7 @@ const router = Router();
 
 router.post('/register', registerPatient);
 router.post('/login', loginPatient);
+router.post('/points/daily-usage', authenticatePatient, awardDailyUsagePoints);
 
 router.patch('/:id/profile', authenticatePatient, updatePatientProfile);
 router.patch('/:id/avatar', authenticatePatient, upload.single('avatar'), updateAvatar);
