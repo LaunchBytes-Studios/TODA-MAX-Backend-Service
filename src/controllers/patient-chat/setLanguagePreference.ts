@@ -1,8 +1,9 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { supabase } from '../../config/db';
 import { v4 as uuidv4 } from 'uuid';
+import { AuthenticatedRequest, ChatMessage } from '../../types/patient-chat';
 
-export const setLanguagePreference = async (req: Request, res: Response) => {
+export const setLanguagePreference = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { chatId, language } = req.body;
 
@@ -48,7 +49,6 @@ export const setLanguagePreference = async (req: Request, res: Response) => {
       .single();
 
     if (fetchError) throw fetchError;
-
     return res.status(200).json({
       success: true,
       data: {
@@ -58,7 +58,7 @@ export const setLanguagePreference = async (req: Request, res: Response) => {
         startedAt: updatedSession.started_at,
         lastMessageAt: updatedSession.last_message_at,
         chatbotActive: updatedSession.chatbot_active,
-        messages: (updatedSession.ChatMessages || []).map((msg: any) => ({
+        messages: (updatedSession.ChatMessages || []).map((msg: ChatMessage) => ({
           id: msg.message_id,
           chatId: msg.chat_id,
           role: msg.role,

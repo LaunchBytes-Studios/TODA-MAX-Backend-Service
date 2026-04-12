@@ -1,10 +1,12 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { supabase } from '../../config/db';
 import { v4 as uuidv4 } from 'uuid';
+import { AuthenticatedRequest, ChatMessage } from '../../types/patient-chat';
 
-export const getChatSession = async (req: Request, res: Response) => {
+export const getChatSession = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const patientId = req.params.patientId || (req as any).user?.patient_id;
+    // Get patient ID from params or reject if not provided
+    const { patientId } = req.params;
 
     if (!patientId) {
       return res.status(400).json({
@@ -14,7 +16,7 @@ export const getChatSession = async (req: Request, res: Response) => {
     }
 
     // Check if a chat session exists for this patient
-    let { data: existingSession, error: fetchError } = await supabase
+    const { data: existingSession, error: fetchError } = await supabase
       .from('ChatSession')
       .select('*')
       .eq('patient_id', patientId)
@@ -25,7 +27,7 @@ export const getChatSession = async (req: Request, res: Response) => {
     // If no session exists, create a new one
     if (fetchError || !existingSession) {
       const newSessionId = uuidv4();
-      const { data: newSession, error: createError } = await supabase
+      const { error: createError } = await supabase
         .from('ChatSession')
         .insert({
           chat_id: newSessionId,
@@ -63,7 +65,7 @@ export const getChatSession = async (req: Request, res: Response) => {
           startedAt: sessionWithMessages.started_at,
           lastMessageAt: sessionWithMessages.last_message_at,
           chatbotActive: sessionWithMessages.chatbot_active,
-          messages: (sessionWithMessages.ChatMessages || []).map((msg: any) => ({
+          messages: (sessionWithMessages.ChatMessages || []).map((msg: ChatMessage) => ({
             id: msg.message_id,
             chatId: msg.chat_id,
             role: msg.role,
@@ -93,7 +95,7 @@ export const getChatSession = async (req: Request, res: Response) => {
         startedAt: sessionWithMessages.started_at,
         lastMessageAt: sessionWithMessages.last_message_at,
         chatbotActive: sessionWithMessages.chatbot_active,
-        messages: (sessionWithMessages.ChatMessages || []).map((msg: any) => ({
+        messages: (sessionWithMessages.ChatMessages || []).map((msg: ChatMessage) => ({
           id: msg.message_id,
           chatId: msg.chat_id,
           role: msg.role,
