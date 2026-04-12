@@ -5,6 +5,7 @@ import trackedMedicationRoutes from './routes/trackedmedication.routes';
 import medicationRoutes from './routes/medication.routes';
 import rewardRoutes from './routes/reward.routes';
 import orderingRoutes from './routes/ordering.routes';
+import aiRoutes from './routes/ai.routes';
 import cors from 'cors';
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/rewards', rewardRoutes);
 app.use('/medications', medicationRoutes);
 app.use('/orders', orderingRoutes);
 app.use('/trackedmedications', trackedMedicationRoutes);
+app.use('/ai', aiRoutes);
 
 /* -------------------------
    404 handler
