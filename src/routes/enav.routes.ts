@@ -13,6 +13,9 @@ import {
   verifyRewardCode,
 } from '../controllers/reward/rewardVerification.controller.ts';
 import { getOrders, updateOrderStatus } from '../controllers/enav-orders/order.controller.ts';
+import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessionsWithPatients.ts';
+import { getMessagesByChatId } from '../controllers/enav-chats/getMessages.ts';
+import { sendMessage } from '../controllers/enav-chats/sendMessage.ts';
 
 const router = Router();
 
@@ -38,5 +41,10 @@ router.post('/rewardCodes/finalize', authenticate, finalizeRewardCode);
 //Orders
 router.patch('/orders/:id/status', authenticate, updateOrderStatus);
 router.get('/orders', authenticate, getOrders);
+
+//eNav utility routes - Support Chat
+router.get('/supportChat/chat-sessions', authenticate, getChatSessionsWithPatients);
+router.get('/supportChat/:chatId/messages', authenticate, getMessagesByChatId);
+router.post('/supportChat/:chatId/messages', authenticate, sendMessage);
 
 export default router;
