@@ -3,6 +3,7 @@ import { getChatSession } from '../controllers/patient-chat/getChatSession';
 import { sendChatMessage } from '../controllers/patient-chat/sendChatPatient';
 import { setLanguagePreference } from '../controllers/patient-chat/setLanguagePreference';
 import { authenticatePatient } from '../middleware/auth';
+import { streamChatMessages } from '../controllers/patient-chat/streamChatMessages';
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.post('/session/language', authenticatePatient, setLanguagePreference);
 
 // Send a chat message (auth required)
 router.post('/message', authenticatePatient, sendChatMessage);
+router.get('/stream/:chatId', streamChatMessages);
 
 export default router;

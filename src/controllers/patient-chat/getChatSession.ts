@@ -3,6 +3,40 @@ import { supabase } from '../../config/db';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthenticatedRequest, ChatMessage } from '../../types/patient-chat';
 
+const INITIAL_CHATBOT_MESSAGE = 'What language do you understand best?';
+
+const mapMessages = (messages: ChatMessage[] = []) =>
+  messages.map((msg: ChatMessage) => ({
+    id: msg.message_id,
+    chatId: msg.chat_id,
+    role: msg.role,
+    content: msg.content,
+    createdAt: msg.created_at,
+    senderId: msg.sender_id,
+  }));
+
+const insertInitialMessage = async (chatId: string) => {
+  const { data: initialMessage, error: initialMessageError } = await supabase
+    .from('ChatMessages')
+    .insert({
+      message_id: uuidv4(),
+      chat_id: chatId,
+      role: 'chatbot',
+      content: INITIAL_CHATBOT_MESSAGE,
+    })
+    .select()
+    .single();
+
+  if (initialMessageError) throw initialMessageError;
+
+  const { error: updateLastMessageError } = await supabase
+    .from('ChatSession')
+    .update({ last_message_at: initialMessage.created_at })
+    .eq('chat_id', chatId);
+
+  if (updateLastMessageError) throw updateLastMessageError;
+};
+
 export const getChatSession = async (req: AuthenticatedRequest, res: Response) => {
   try {
     // Get patient ID from params or reject if not provided
@@ -40,12 +74,7 @@ export const getChatSession = async (req: AuthenticatedRequest, res: Response) =
       if (createError) throw createError;
 
       // Add initial chatbot message
-      await supabase.from('ChatMessages').insert({
-        message_id: uuidv4(),
-        chat_id: newSessionId,
-        role: 'chatbot',
-        content: 'What language do you understand best?',
-      });
+      await insertInitialMessage(newSessionId);
 
       // Fetch the session with messages
       const { data: sessionWithMessages, error: fetchWithMessagesError } = await supabase
@@ -65,14 +94,7 @@ export const getChatSession = async (req: AuthenticatedRequest, res: Response) =
           startedAt: sessionWithMessages.started_at,
           lastMessageAt: sessionWithMessages.last_message_at,
           chatbotActive: sessionWithMessages.chatbot_active,
-          messages: (sessionWithMessages.ChatMessages || []).map((msg: ChatMessage) => ({
-            id: msg.message_id,
-            chatId: msg.chat_id,
-            role: msg.role,
-            content: msg.content,
-            createdAt: msg.created_at,
-            senderId: msg.sender_id,
-          })),
+          messages: mapMessages(sessionWithMessages.ChatMessages || []),
         },
       });
     }
@@ -86,6 +108,32 @@ export const getChatSession = async (req: AuthenticatedRequest, res: Response) =
 
     if (fetchWithMessagesError) throw fetchWithMessagesError;
 
+    // Guarantee a first chatbot message for existing sessions that have no messages yet
+    if (!sessionWithMessages.ChatMessages || sessionWithMessages.ChatMessages.length === 0) {
+      await insertInitialMessage(existingSession.chat_id);
+
+      const { data: refreshedSession, error: refreshedSessionError } = await supabase
+        .from('ChatSession')
+        .select('*, ChatMessages(*)')
+        .eq('chat_id', existingSession.chat_id)
+        .single();
+
+      if (refreshedSessionError) throw refreshedSessionError;
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          id: refreshedSession.chat_id,
+          patientId: refreshedSession.patient_id,
+          language: refreshedSession.language,
+          startedAt: refreshedSession.started_at,
+          lastMessageAt: refreshedSession.last_message_at,
+          chatbotActive: refreshedSession.chatbot_active,
+          messages: mapMessages(refreshedSession.ChatMessages || []),
+        },
+      });
+    }
+
     return res.status(200).json({
       success: true,
       data: {
@@ -95,14 +143,7 @@ export const getChatSession = async (req: AuthenticatedRequest, res: Response) =
         startedAt: sessionWithMessages.started_at,
         lastMessageAt: sessionWithMessages.last_message_at,
         chatbotActive: sessionWithMessages.chatbot_active,
-        messages: (sessionWithMessages.ChatMessages || []).map((msg: ChatMessage) => ({
-          id: msg.message_id,
-          chatId: msg.chat_id,
-          role: msg.role,
-          content: msg.content,
-          createdAt: msg.created_at,
-          senderId: msg.sender_id,
-        })),
+        messages: mapMessages(sessionWithMessages.ChatMessages || []),
       },
     });
   } catch (error) {
