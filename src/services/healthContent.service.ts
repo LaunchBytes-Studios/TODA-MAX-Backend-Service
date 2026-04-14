@@ -1,6 +1,6 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import mammoth from "mammoth";
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import mammoth from 'mammoth';
 
 type Chunk = {
   id: string;
@@ -14,13 +14,12 @@ const DEFAULT_CHUNK_OVERLAP = 80;
 const DEFAULT_LIMIT = 2;
 
 const HEALTH_CONTENT_DIR =
-  process.env.HEALTH_CONTENT_DIR ?? path.resolve(process.cwd(), "health-content");
+  process.env.HEALTH_CONTENT_DIR ?? path.resolve(process.cwd(), 'health-content');
 
 let cachedChunks: Chunk[] | null = null;
 let loadingPromise: Promise<Chunk[]> | null = null;
 
-const normalizeWhitespace = (value: string): string =>
-  value.replace(/\s+/g, " ").trim();
+const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, ' ').trim();
 
 const tokenize = (value: string): string[] => {
   const matches = value.toLowerCase().match(/[a-z0-9]+/g);
@@ -41,7 +40,7 @@ const chunkText = (text: string): string[] => {
     if (slice.length === 0) {
       continue;
     }
-    chunks.push(slice.join(" "));
+    chunks.push(slice.join(' '));
   }
 
   return chunks;
@@ -70,12 +69,12 @@ const scoreChunk = (queryTokens: Set<string>, chunkTokens: Set<string>) => {
 
 const extractTextFromFile = async (filePath: string): Promise<string> => {
   const extension = path.extname(filePath).toLowerCase();
-  if (extension === ".docx") {
+  if (extension === '.docx') {
     const { value } = await mammoth.extractRawText({ path: filePath });
     return value;
   }
 
-  return "";
+  return '';
 };
 
 const loadHealthContent = async (): Promise<Chunk[]> => {
@@ -131,16 +130,15 @@ const getChunks = async (): Promise<Chunk[]> => {
   return loadingPromise;
 };
 
-
 export const getHealthContext = async (query: string, limit = DEFAULT_LIMIT) => {
   const trimmedQuery = query.trim();
   if (!trimmedQuery) {
-    return "";
+    return '';
   }
 
   const chunks = await getChunks();
   if (chunks.length === 0) {
-    return "";
+    return '';
   }
 
   const queryTokens = new Set(tokenize(trimmedQuery));
@@ -166,9 +164,7 @@ export const getHealthContext = async (query: string, limit = DEFAULT_LIMIT) => 
     .map((item) => item.chunk);
 
   if (scored.length > 0) {
-    return scored
-      .map((chunk) => `Source: ${chunk.source}\n${chunk.text}`)
-      .join("\n\n---\n\n");
+    return scored.map((chunk) => `Source: ${chunk.source}\n${chunk.text}`).join('\n\n---\n\n');
   }
-  return "";
+  return '';
 };

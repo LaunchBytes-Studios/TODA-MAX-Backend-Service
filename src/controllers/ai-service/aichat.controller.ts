@@ -51,7 +51,6 @@ type ChatMessageInsert = {
   content: string;
 };
 
-
 const assertChatOwnership = async (chatId: string, patientId: string) => {
   const { data, error } = await supabase
     .from('ChatSession')
@@ -69,10 +68,7 @@ const updateChatSession = async (chatId: string, fields: ChatSessionUpdate) => {
   if (!fields || Object.keys(fields).length === 0) {
     return;
   }
-  const { error } = await supabase
-    .from('ChatSession')
-    .update(fields)
-    .eq('chat_id', chatId);
+  const { error } = await supabase.from('ChatSession').update(fields).eq('chat_id', chatId);
   if (error) throw new Error(error.message);
 };
 
@@ -183,7 +179,6 @@ const fetchPatientContext = async (patientId: string): Promise<PatientContext | 
   return Object.keys(context).length > 0 ? context : null;
 };
 
-
 export const chatWithAi = asyncHandler('Failed to process chat', async (req, res) => {
   //parsing and validation
   const parsed = chatSchema.safeParse(req.body);
@@ -203,7 +198,10 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
   const { message, chat_id, language, patient_context } = parsed.data;
   const patientContext = await fetchPatientContext(patientId);
   // single patient context merging
-  const mergedPatientContext = { ...((patient_context && Object.keys(patient_context).length > 0) ? patient_context : {}), ...((patientContext && Object.keys(patientContext).length > 0) ? patientContext : {}) };
+  const mergedPatientContext = {
+    ...(patient_context && Object.keys(patient_context).length > 0 ? patient_context : {}),
+    ...(patientContext && Object.keys(patientContext).length > 0 ? patientContext : {}),
+  };
 
   let chatId = chat_id as string;
   if (chatId) {
@@ -251,19 +249,18 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
   }
 
   const history = await fetchChatHistory(chatId);
-    const healthContext = await getHealthContext(message);
-    // Ensure healthContext is always a string (legacy code may have returned Chunk[])
-    const healthContextStr = typeof healthContext === 'string' ? healthContext : '';
-    const trimmedHealthContext = healthContextStr.trim().slice(0, 4000);
+  const healthContext = await getHealthContext(message);
+  // Ensure healthContext is always a string (legacy code may have returned Chunk[])
+  const healthContextStr = typeof healthContext === 'string' ? healthContext : '';
+  const trimmedHealthContext = healthContextStr.trim().slice(0, 4000);
   if (trimmedHealthContext) {
     const preview = trimmedHealthContext.slice(0, 300);
-    console.log("Health context preview:", preview);
+    console.log('Health context preview:', preview);
   } else {
-    console.log("Health context preview: (empty)");
+    console.log('Health context preview: (empty)');
   }
 
-
-  // No early refusal: always call AI service, even if health context is empty. AI service will handle fallback/refusal.
+  // always call AI service, even if health context is empty. AI service will handle fallback/refusal.
 
   let aiResponse;
   try {
