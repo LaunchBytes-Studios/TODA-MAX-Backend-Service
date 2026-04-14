@@ -1,6 +1,8 @@
+import axios from 'axios';
 import { supabase } from '../../config/db';
 import { z } from 'zod';
 import { requestAiReply } from '../../services/ai.service';
+import { getHealthContext } from '../../services/healthContent.service';
 import { asyncHandler, HttpError, requirePatientId } from '../../utils/helpers';
 
 const chatbotId = process.env.CHATBOT_ID;
@@ -12,6 +14,14 @@ const chatSchema = z.object({
   message: z.string().trim().min(2).max(1000),
   chat_id: z.string().uuid().optional(),
   language: z.string().trim().max(100).optional(),
+  patient_context: z
+    .object({
+      name: z.string().trim().max(200).optional(),
+      age: z.number().int().min(0).max(130).optional(),
+      sex: z.string().trim().max(50).optional(),
+      diagnosis: z.record(z.string(), z.boolean()).optional(),
+    })
+    .optional(),
 });
 
 type ChatRole = 'patient' | 'chatbot';
@@ -25,8 +35,39 @@ type PatientContext = {
   name?: string;
   age?: number;
   sex?: string;
-  diagnosis?: unknown;
+  diagnosis?: Record<string, boolean>;
 };
+
+const DEFAULT_REFUSAL_TEXT =
+  'Sorry, I cannot answer that question. Please wait for the eNavigator to assist you.';
+
+const getRefusalText = (language?: string) => {
+  const normalized = (language ?? '').trim().toLowerCase();
+  if (normalized === 'hiligaynon' || normalized === 'ilonggo') {
+    return 'Pasensya, indi ko masabat imo pamangkot. Palihog hulat sa eNavigator para mabuligan ya ka';
+  }
+  if (normalized === 'filipino' || normalized === 'tagalog') {
+    return 'Paumanhin, hindi ko masasagot ang tanong mo. Mangyaring maghintay sa eNavigator para sa tulong.';
+  }
+  if (normalized === 'bisaya') {
+    return 'Pasensya, dili ko makatubag sa imong pangutana. Palihug hulat sa eNavigator para sa tabang.';
+  }
+  return DEFAULT_REFUSAL_TEXT;
+};
+
+type ChatSessionUpdate = Partial<{
+  language: string;
+  chatbot_active: boolean;
+  last_message_at: string;
+}>;
+
+type ChatMessageInsert = {
+  chat_id: string;
+  role: ChatRole;
+  sender_id: string;
+  content: string;
+};
+
 
 const assertChatOwnership = async (chatId: string, patientId: string) => {
   const { data, error } = await supabase
@@ -35,10 +76,26 @@ const assertChatOwnership = async (chatId: string, patientId: string) => {
     .eq('chat_id', chatId)
     .eq('patient_id', patientId)
     .single();
-
   if (error || !data) {
     throw new HttpError(404, 'Chat not found');
   }
+};
+
+//helpers for updating session and inserting messages
+const updateChatSession = async (chatId: string, fields: ChatSessionUpdate) => {
+  if (!fields || Object.keys(fields).length === 0) {
+    return;
+  }
+  const { error } = await supabase
+    .from('ChatSession')
+    .update(fields)
+    .eq('chat_id', chatId);
+  if (error) throw new Error(error.message);
+};
+
+const insertChatMessages = async (messages: ChatMessageInsert[]) => {
+  const { error } = await supabase.from('ChatMessages').insert(messages);
+  if (error) throw new Error(error.message);
 };
 
 const createChatSession = async (patientId: string, language?: string): Promise<string> => {
@@ -48,6 +105,7 @@ const createChatSession = async (patientId: string, language?: string): Promise<
       {
         patient_id: patientId,
         language: language ?? 'English',
+        chatbot_active: true,
         started_at: new Date().toISOString(),
       },
     ])
@@ -73,7 +131,7 @@ const fetchChatHistory = async (chatId: string): Promise<ChatHistoryItem[]> => {
     throw new Error(error.message);
   }
   // if the role was 'user' append on the db should be 'patient' and if the role was 'assistant' append on the db should be 'chatbot'
-  const roleMapping: { [key: string]: ChatRole } = {
+  const roleMapping: Record<string, ChatRole> = {
     user: 'patient',
     assistant: 'chatbot',
   };
@@ -142,7 +200,9 @@ const fetchPatientContext = async (patientId: string): Promise<PatientContext | 
   return Object.keys(context).length > 0 ? context : null;
 };
 
+
 export const chatWithAi = asyncHandler('Failed to process chat', async (req, res) => {
+  //parsing and validation
   const parsed = chatSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ success: false, message: 'Invalid request body' });
@@ -157,8 +217,10 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
   }
 
   const patientId = requirePatientId(req);
-  const { message, chat_id, language } = parsed.data;
+  const { message, chat_id, language, patient_context } = parsed.data;
   const patientContext = await fetchPatientContext(patientId);
+  // single patient context merging
+  const mergedPatientContext = { ...((patient_context && Object.keys(patient_context).length > 0) ? patient_context : {}), ...((patientContext && Object.keys(patientContext).length > 0) ? patientContext : {}) };
 
   let chatId = chat_id as string;
   if (chatId) {
@@ -168,24 +230,16 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
       .select('chatbot_active')
       .eq('chat_id', chatId)
       .single();
-
-    if (chatSessionError) {
-      throw new Error(chatSessionError.message);
-    }
-
+    if (chatSessionError) throw new Error(chatSessionError.message);
     if (chatSession?.chatbot_active === false) {
       return res.status(503).json({
         success: false,
         message: 'The chatbot is currently unavailable. Please try again later.',
       });
     }
-
     if (language) {
-    await supabase
-      .from('ChatSession')
-      .update({ language })
-      .eq('chat_id', chatId);
-  }
+      await updateChatSession(chatId, { language });
+    }
   } else {
     // Try to reuse latest chat for this patient
     const { data: existing, error: existingErr } = await supabase
@@ -195,50 +249,94 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
       .order('started_at', { ascending: false })
       .limit(1)
       .single();
-      if (existing?.chat_id) {
-  if (existing.chatbot_active === false) {
-    return res.status(503).json({
-      success: false,
-      message: 'The chatbot is currently unavailable. Please try again later.',
-    });
-  }
-  chatId = existing.chat_id;
-  if (language && existing.language !== language) {
-    await supabase
-      .from('ChatSession')
-      .update({ language })
-      .eq('chat_id', chatId);
-  }
-}
-
+    if (existing?.chat_id) {
+      if (existing.chatbot_active === false) {
+        return res.status(503).json({
+          success: false,
+          message: 'The chatbot is currently unavailable. Please try again later.',
+        });
+      }
+      chatId = existing.chat_id;
+      if (language && existing.language !== language) {
+        await updateChatSession(chatId, { language });
+      }
+    }
     if (existingErr && existingErr.code !== 'PGRST116') {
       throw new Error(existingErr.message);
     }
-
     chatId = existing?.chat_id ?? (await createChatSession(patientId, language));
   }
-  
 
   const history = await fetchChatHistory(chatId);
-  const aiResponse = await requestAiReply({
-    message: message.trim(),
-    language,
-    history,
-    patient_context: patientContext ?? undefined,
-  });
+  const healthContext = await getHealthContext(message);
+  const trimmedHealthContext = healthContext.trim().slice(0, 4000);
+  if (trimmedHealthContext) {
+    const preview = trimmedHealthContext.slice(0, 300);
+    console.log("Health context preview:", preview);
+  } else {
+    console.log("Health context preview: (empty)");
+  }
+
+  // Early return for escalation
+  if (!trimmedHealthContext) {
+    const escalationMessage = getRefusalText(language);
+    await updateChatSession(chatId, { chatbot_active: false, last_message_at: new Date().toISOString() });
+    await insertChatMessages([
+      {
+        chat_id: chatId,
+        role: 'patient',
+        sender_id: patientId,
+        content: message.trim(),
+      },
+      {
+        chat_id: chatId,
+        role: 'chatbot',
+        sender_id: chatbotId,
+        content: escalationMessage,
+      },
+    ]);
+    return res.json({
+      success: true,
+      data: {
+        chat_id: chatId,
+        reply: escalationMessage,
+        chatbot_active: false,
+      },
+    });
+  }
+
+  let aiResponse;
+  try {
+    aiResponse = await requestAiReply({
+      message: message.trim(),
+      language,
+      history,
+      health_context: trimmedHealthContext || undefined,
+      patient_context:
+        Object.keys(mergedPatientContext).length > 0 ? mergedPatientContext : undefined,
+    });
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 429) {
+        throw new HttpError(429, 'Gemini quota exceeded or rate limited. Please try again later.');
+      }
+      if (status === 503) {
+        throw new HttpError(503, 'Gemini is experiencing high demand. Please try again later.');
+      }
+    }
+    throw error;
+  }
 
   if (!aiResponse?.reply) {
     throw new Error('AI service returned an empty reply');
   }
 
   if (aiResponse.chatbot_active === false) {
-  await supabase
-    .from('ChatSession')
-    .update({ chatbot_active: false })
-    .eq('chat_id', chatId);
-}
+    await updateChatSession(chatId, { chatbot_active: false });
+  }
 
-  const { error: insertError } = await supabase.from('ChatMessages').insert([
+  await insertChatMessages([
     {
       chat_id: chatId,
       role: 'patient',
@@ -253,25 +351,14 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
     },
   ]);
 
-  if (insertError) {
-    throw new Error(insertError.message);
-  }
-
-  const { error: sessionUpdateError } = await supabase
-    .from('ChatSession')
-    .update({ last_message_at: new Date().toISOString() })
-    .eq('chat_id', chatId);
-
-  if (sessionUpdateError) {
-    throw new Error(sessionUpdateError.message);
-  }
+  await updateChatSession(chatId, { last_message_at: new Date().toISOString() });
 
   return res.json({
-  success: true,
-  data: {
-    chat_id: chatId,
-    reply: aiResponse.reply,
-    chatbot_active: aiResponse.chatbot_active,
-  },
-});
+    success: true,
+    data: {
+      chat_id: chatId,
+      reply: aiResponse.reply,
+      chatbot_active: aiResponse.chatbot_active,
+    },
+  });
 });

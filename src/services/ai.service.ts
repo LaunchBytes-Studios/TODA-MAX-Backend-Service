@@ -11,11 +11,12 @@ export type AiChatRequest = {
   message: string;
   language?: string;
   history?: ChatHistoryItem[];
+  health_context?: string;
   patient_context?: {
     name?: string;
     age?: number;
     sex?: string;
-    diagnosis?: unknown;
+    diagnosis?: Record<string, boolean>;
   };
 };
 
@@ -27,23 +28,24 @@ export type AiChatResponse = {
 const getAiServiceConfig = () => {
   const url = process.env.AI_SERVICE_URL;
   const key = process.env.AI_SERVICE_KEY;
+  const timeout = Number(process.env.AI_SERVICE_TIMEOUT_MS ?? 30000);
 
   if (!url || !key) {
     throw new Error('Missing AI_SERVICE_URL or AI_SERVICE_KEY');
   }
 
-  return { url, key };
+  return { url, key, timeout };
 };
 
 export const requestAiReply = async (payload: AiChatRequest): Promise<AiChatResponse> => {
-  const { url, key } = getAiServiceConfig();
+  const { url, key, timeout } = getAiServiceConfig();
 
   const response = await axios.post<AiChatResponse>(`${url}/chat`, payload, {
     headers: {
       'x-service-key': key,
       'content-type': 'application/json',
     },
-    timeout: 15000,
+    timeout,
   });
 
   return response.data;
