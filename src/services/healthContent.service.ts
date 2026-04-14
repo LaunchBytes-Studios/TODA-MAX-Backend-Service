@@ -131,6 +131,7 @@ const getChunks = async (): Promise<Chunk[]> => {
   return loadingPromise;
 };
 
+
 export const getHealthContext = async (query: string, limit = DEFAULT_LIMIT) => {
   const trimmedQuery = query.trim();
   if (!trimmedQuery) {
@@ -152,26 +153,22 @@ export const getHealthContext = async (query: string, limit = DEFAULT_LIMIT) => 
       if (item.overlap === 0) {
         return false;
       }
-
       if (item.overlap >= 2) {
         return true;
       }
-
       if (queryTokens.size <= 2) {
         return item.matchedTokens.some((token) => token.length >= 6);
       }
-
       return false;
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map((item) => item.chunk);
 
-  if (scored.length === 0) {
-    return "";
+  if (scored.length > 0) {
+    return scored
+      .map((chunk) => `Source: ${chunk.source}\n${chunk.text}`)
+      .join("\n\n---\n\n");
   }
-
-  return scored
-    .map((chunk) => `Source: ${chunk.source}\n${chunk.text}`)
-    .join("\n\n---\n\n");
+  return "";
 };

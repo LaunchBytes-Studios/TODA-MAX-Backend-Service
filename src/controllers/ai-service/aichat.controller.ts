@@ -38,23 +38,6 @@ type PatientContext = {
   diagnosis?: Record<string, boolean>;
 };
 
-const DEFAULT_REFUSAL_TEXT =
-  'Sorry, I cannot answer that question. Please wait for the eNavigator to assist you.';
-
-const getRefusalText = (language?: string) => {
-  const normalized = (language ?? '').trim().toLowerCase();
-  if (normalized === 'hiligaynon' || normalized === 'ilonggo') {
-    return 'Pasensya, indi ko masabat imo pamangkot. Palihog hulat sa eNavigator para mabuligan ya ka';
-  }
-  if (normalized === 'filipino' || normalized === 'tagalog') {
-    return 'Paumanhin, hindi ko masasagot ang tanong mo. Mangyaring maghintay sa eNavigator para sa tulong.';
-  }
-  if (normalized === 'bisaya') {
-    return 'Pasensya, dili ko makatubag sa imong pangutana. Palihug hulat sa eNavigator para sa tabang.';
-  }
-  return DEFAULT_REFUSAL_TEXT;
-};
-
 type ChatSessionUpdate = Partial<{
   language: string;
   chatbot_active: boolean;
@@ -268,8 +251,10 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
   }
 
   const history = await fetchChatHistory(chatId);
-  const healthContext = await getHealthContext(message);
-  const trimmedHealthContext = healthContext.trim().slice(0, 4000);
+    const healthContext = await getHealthContext(message);
+    // Ensure healthContext is always a string (legacy code may have returned Chunk[])
+    const healthContextStr = typeof healthContext === 'string' ? healthContext : '';
+    const trimmedHealthContext = healthContextStr.trim().slice(0, 4000);
   if (trimmedHealthContext) {
     const preview = trimmedHealthContext.slice(0, 300);
     console.log("Health context preview:", preview);
@@ -277,33 +262,8 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
     console.log("Health context preview: (empty)");
   }
 
-  // Early return for escalation
-  if (!trimmedHealthContext) {
-    const escalationMessage = getRefusalText(language);
-    await updateChatSession(chatId, { chatbot_active: false, last_message_at: new Date().toISOString() });
-    await insertChatMessages([
-      {
-        chat_id: chatId,
-        role: 'patient',
-        sender_id: patientId,
-        content: message.trim(),
-      },
-      {
-        chat_id: chatId,
-        role: 'chatbot',
-        sender_id: chatbotId,
-        content: escalationMessage,
-      },
-    ]);
-    return res.json({
-      success: true,
-      data: {
-        chat_id: chatId,
-        reply: escalationMessage,
-        chatbot_active: false,
-      },
-    });
-  }
+
+  // No early refusal: always call AI service, even if health context is empty. AI service will handle fallback/refusal.
 
   let aiResponse;
   try {
