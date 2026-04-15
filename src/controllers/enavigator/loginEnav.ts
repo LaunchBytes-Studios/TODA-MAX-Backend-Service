@@ -1,4 +1,3 @@
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../../config/db';
 import { Request, Response } from 'express';

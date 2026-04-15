@@ -80,11 +80,14 @@ export const getOrders = async (req: Request, res: Response) => {
       .from('OrderItem')
       .select(
         `
-        order_id,
-        quantity,
-        price,
-        Medication ( name, description )
-      `,
+    order_id,
+    quantity,
+    price,
+    Medication!inner (
+      name,
+      description
+    )
+  `,
       )
       .in('order_id', orderIds);
 
@@ -95,12 +98,21 @@ export const getOrders = async (req: Request, res: Response) => {
     const formattedOrders = orders.map((order: DBOrder) => {
       const patient = patients?.find((p) => p.patient_id === order.patient_id);
 
-      const orderItems = items?.filter((i) => i.order_id === order.order_id) || [];
+      const typedItems = items ?? [];
 
-      const totalAmount = orderItems.reduce(
-        (acc: number, item: any) => acc + Number(item.price) * item.quantity,
-        0,
+      const itemsByOrder = typedItems.reduce(
+        (acc, item) => {
+          if (!acc[item.order_id]) acc[item.order_id] = [];
+          acc[item.order_id].push(item);
+          return acc;
+        },
+        {} as Record<string, typeof typedItems>,
       );
+
+      const totalAmount =
+        itemsByOrder[order.order_id]?.reduce((acc, item) => {
+          return acc + Number(item.price) * item.quantity;
+        }, 0) || 0;
 
       let diagnosisString = 'No diagnosis provided';
       if (patient?.diagnosis && typeof patient.diagnosis === 'object') {
@@ -125,12 +137,15 @@ export const getOrders = async (req: Request, res: Response) => {
         status: order.status,
         delivery_type: order.delivery_type,
         delivery_address: order.delivery_address || 'No address provided',
-        items: orderItems.map((item: any) => ({
-          name: item.Medication?.name,
-          description: item.Medication?.description,
-          quantity: item.quantity,
-          price: Number(item.price),
-        })),
+        items: (itemsByOrder[order.order_id] || []).map((item) => {
+          const med = Array.isArray(item.Medication) ? item.Medication[0] : item.Medication;
+          return {
+            name: med.name,
+            description: med.description,
+            quantity: item.quantity,
+            price: Number(item.price),
+          };
+        }),
       };
     });
 
