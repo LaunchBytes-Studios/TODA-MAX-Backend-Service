@@ -1,7 +1,15 @@
 import { Response } from 'express';
 import { supabase } from '../../config/db';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { AuthenticatedRequest } from '../../types/patient-chat';
+import axios from 'axios';
+import { requestAiReply } from '../../services/ai.service';
+import { getHealthContext } from '../../services/healthContent.service';
+
+const chatbotId = process.env.CHATBOT_ID;
+if (!chatbotId) {
+  throw new Error('Missing CHATBOT_ID');
+}
 
 export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -14,15 +22,43 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
       });
     }
 
+    const trimmedContent = String(content).trim();
+    if (!trimmedContent) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message content must not be empty',
+      });
+    }
+
+    const { data: chatSession, error: chatSessionError } = await supabase
+      .from('ChatSession')
+      .select('language, chatbot_active')
+      .eq('chat_id', chatId)
+      .single();
+
+    if (chatSessionError || !chatSession) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat session not found',
+      });
+    }
+
+    if (chatSession.chatbot_active === false) {
+      return res.status(503).json({
+        success: false,
+        message: 'The chatbot is currently unavailable. Please try again later.',
+      });
+    }
+
     // 1. Create patient message
     // We .select() after insert to get the DB-generated 'created_at'
     const { data: patientMessage, error: patientMsgError } = await supabase
       .from('ChatMessages')
       .insert({
-        message_id: uuidv4(),
+        message_id: randomUUID(),
         chat_id: chatId,
         role: 'patient',
-        content,
+        content: trimmedContent,
         sender_id: req.user?.userId || null,
       })
       .select()
@@ -30,30 +66,94 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
 
     if (patientMsgError) throw patientMsgError;
 
-    // 2. Update chat session's last_message_at
-    // We use the patient message's created_at to keep session and message times identical
-    const { error: updateError } = await supabase
-      .from('ChatSession')
-      .update({ last_message_at: patientMessage.created_at })
-      .eq('chat_id', chatId);
+    // 2. Build compact chat history for AI context
+    const { data: historyRows, error: historyError } = await supabase
+      .from('ChatMessages')
+      .select('role, content')
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: false })
+      .limit(6);
 
-    if (updateError) throw updateError;
+    if (historyError) throw historyError;
 
-    // 3. Create simulated chatbot reply
+    const roleMapping: Record<string, 'patient' | 'chatbot'> = {
+      user: 'patient',
+      assistant: 'chatbot',
+    };
+
+    const history = (historyRows ?? [])
+      .reverse()
+      .map((row) => ({
+        role: roleMapping[row.role] || row.role,
+        content: typeof row.content === 'string' ? row.content.trim() : '',
+      }))
+      .filter(
+        (row) => (row.role === 'patient' || row.role === 'chatbot') && row.content.length > 0,
+      ) as Array<{ role: 'patient' | 'chatbot'; content: string }>;
+
+    // 3. Pull health context and request AI reply
+    const healthContext = await getHealthContext(trimmedContent);
+    const trimmedHealthContext =
+      typeof healthContext === 'string' ? healthContext.trim().slice(0, 4000) : '';
+
+    let aiResponse: { reply: string; chatbot_active: boolean };
+    try {
+      aiResponse = await requestAiReply({
+        message: trimmedContent,
+        language: chatSession.language ?? undefined,
+        history,
+        health_context: trimmedHealthContext || undefined,
+      });
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        if (status === 429) {
+          return res.status(429).json({
+            success: false,
+            message: 'Gemini quota exceeded or rate limited. Please try again later.',
+          });
+        }
+        if (status === 503) {
+          return res.status(503).json({
+            success: false,
+            message: 'Gemini is experiencing high demand. Please try again later.',
+          });
+        }
+      }
+      throw error;
+    }
+
+    if (!aiResponse?.reply) {
+      throw new Error('AI service returned an empty reply');
+    }
+
+    // 4. Insert chatbot AI reply message
     const { data: chatbotMessage, error: chatbotMsgError } = await supabase
       .from('ChatMessages')
       .insert({
-        message_id: uuidv4(),
+        message_id: randomUUID(),
         chat_id: chatId,
         role: 'chatbot',
-        content: 'I understand. How can I assist you further?',
+        content: aiResponse.reply,
+        sender_id: chatbotId,
       })
       .select()
       .single();
 
     if (chatbotMsgError) throw chatbotMsgError;
 
-    // 4. Return data mapped to camelCase for your Frontend Hooks
+    // 5. Update chat session state after final bot message
+    const { error: updateError } = await supabase
+      .from('ChatSession')
+      .update({
+        last_message_at: chatbotMessage.created_at,
+        chatbot_active: aiResponse.chatbot_active,
+      })
+      .eq('chat_id', chatId);
+
+    if (updateError) throw updateError;
+
+    // 6. Return both messages mapped to camelCase for frontend hooks
     return res.status(201).json({
       success: true,
       data: {

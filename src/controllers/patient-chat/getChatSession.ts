@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { supabase } from '../../config/db';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { AuthenticatedRequest, ChatMessage } from '../../types/patient-chat';
 
 const INITIAL_CHATBOT_MESSAGE = 'What language do you understand best?';
@@ -19,7 +19,7 @@ const insertInitialMessage = async (chatId: string) => {
   const { data: initialMessage, error: initialMessageError } = await supabase
     .from('ChatMessages')
     .insert({
-      message_id: uuidv4(),
+      message_id: randomUUID(),
       chat_id: chatId,
       role: 'chatbot',
       content: INITIAL_CHATBOT_MESSAGE,
@@ -60,7 +60,7 @@ export const getChatSession = async (req: AuthenticatedRequest, res: Response) =
 
     // If no session exists, create a new one
     if (fetchError || !existingSession) {
-      const newSessionId = uuidv4();
+      const newSessionId = randomUUID();
       const { error: createError } = await supabase
         .from('ChatSession')
         .insert({

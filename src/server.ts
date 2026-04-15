@@ -7,7 +7,6 @@ import rewardRoutes from './routes/reward.routes';
 import orderingRoutes from './routes/ordering.routes';
 import chatRoutes from './routes/chat.routes';
 import cors from 'cors';
-import chatRoutes from './routes/chat.routes';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;

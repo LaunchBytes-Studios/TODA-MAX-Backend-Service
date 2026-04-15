@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { supabase } from '../../config/db';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { AuthenticatedRequest, ChatMessage } from '../../types/patient-chat';
 
 export const setLanguagePreference = async (req: AuthenticatedRequest, res: Response) => {
@@ -33,7 +33,7 @@ export const setLanguagePreference = async (req: AuthenticatedRequest, res: Resp
 
     // Create a message confirming the language selection
     const { error: messageError } = await supabase.from('ChatMessages').insert({
-      message_id: uuidv4(),
+      message_id: randomUUID(),
       chat_id: chatId,
       role: 'chatbot',
       content: `Great! I'll help you in ${language}.`,
