@@ -38,6 +38,17 @@ TODA MAX Backend Service is the core API service that powers the TODA MAX applic
    npm run dev
    ```
 
+## Environment Variables
+
+Set the following variables in your environment or a local `.env` file:
+
+- `EXPO_PUBLIC_SUPABASE_URL`: Supabase project URL
+- `EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key
+- `JWT_SECRET`: JWT signing secret for patient authentication
+- `AI_SERVICE_URL`: Base URL for the AI service (e.g., `http://localhost:3001`)
+- `AI_SERVICE_KEY`: Shared service key used to call the AI service
+- `PORT`: Optional override for the default port (3000)
+
 ## Scripts
 
 - `npm run dev`: Start development server with hot reload
