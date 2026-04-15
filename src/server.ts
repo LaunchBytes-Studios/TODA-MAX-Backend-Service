@@ -5,8 +5,8 @@ import trackedMedicationRoutes from './routes/trackedmedication.routes';
 import medicationRoutes from './routes/medication.routes';
 import rewardRoutes from './routes/reward.routes';
 import orderingRoutes from './routes/ordering.routes';
-import cors from 'cors';
 import chatRoutes from './routes/chat.routes';
+import cors from 'cors';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
