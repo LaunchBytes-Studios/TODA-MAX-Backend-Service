@@ -1,13 +1,9 @@
-import { Patient } from './patient';
-import { OrderItem } from './orderItem';
-
 export interface Order {
   order_id: string;
+  patient_id: string;
   order_date: string;
   received_date: string | null;
-  status: string;
-  delivery_type: string;
+  status: string | null;
+  delivery_type: string | null;
   delivery_address: string | null;
-  Patient: Patient;
-  OrderItem: OrderItem[];
 }
