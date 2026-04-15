@@ -23,6 +23,21 @@ export const setLanguagePreference = async (req: AuthenticatedRequest, res: Resp
       });
     }
 
+    const { data: chatSession, error: sessionError } = await supabase
+      .from('ChatSession')
+      .select('chat_id, patient_id')
+      .eq('chat_id', chatId)
+      .single();
+
+    if (sessionError || !chatSession) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat session not found',
+      });
+    }
+
+    const senderId = req.user?.userId || chatSession.patient_id || null;
+
     // Update chat session with language preference
     const { error: updateError } = await supabase
       .from('ChatSession')
@@ -31,7 +46,20 @@ export const setLanguagePreference = async (req: AuthenticatedRequest, res: Resp
 
     if (updateError) throw updateError;
 
-    // Create a message confirming the language selection
+    const { data: patientMessage, error: patientMessageError } = await supabase
+      .from('ChatMessages')
+      .insert({
+        message_id: randomUUID(),
+        chat_id: chatId,
+        role: 'patient',
+        content: language,
+        sender_id: senderId,
+      })
+      .select()
+      .single();
+
+    if (patientMessageError) throw patientMessageError;
+
     const { data: chatbotMessage, error: messageError } = await supabase
       .from('ChatMessages')
       .insert({
@@ -69,6 +97,14 @@ export const setLanguagePreference = async (req: AuthenticatedRequest, res: Resp
         startedAt: updatedSession.started_at,
         lastMessageAt: updatedSession.last_message_at,
         chatbotActive: updatedSession.chatbot_active,
+        patientMessage: {
+          id: patientMessage.message_id,
+          chatId: patientMessage.chat_id,
+          role: patientMessage.role,
+          content: patientMessage.content,
+          createdAt: patientMessage.created_at,
+          senderId: patientMessage.sender_id,
+        },
         chatbotMessage: {
           id: chatbotMessage.message_id,
           chatId: chatbotMessage.chat_id,

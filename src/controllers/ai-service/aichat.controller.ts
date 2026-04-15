@@ -45,13 +45,6 @@ type ChatSessionUpdate = Partial<{
   last_message_at: string;
 }>;
 
-type ChatMessageInsert = {
-  chat_id: string;
-  role: ChatRole;
-  sender_id: string;
-  content: string;
-};
-
 const assertChatOwnership = async (chatId: string, patientId: string) => {
   const { data, error } = await supabase
     .from('ChatSession')
