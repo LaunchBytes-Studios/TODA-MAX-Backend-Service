@@ -32,14 +32,25 @@ export const setLanguagePreference = async (req: AuthenticatedRequest, res: Resp
     if (updateError) throw updateError;
 
     // Create a message confirming the language selection
-    const { error: messageError } = await supabase.from('ChatMessages').insert({
-      message_id: randomUUID(),
-      chat_id: chatId,
-      role: 'chatbot',
-      content: `Great! I'll help you in ${language}.`,
-    });
+    const { data: chatbotMessage, error: messageError } = await supabase
+      .from('ChatMessages')
+      .insert({
+        message_id: randomUUID(),
+        chat_id: chatId,
+        role: 'chatbot',
+        content: `Great! I'll help you in ${language}.`,
+      })
+      .select()
+      .single();
 
     if (messageError) throw messageError;
+
+    const { error: lastMessageError } = await supabase
+      .from('ChatSession')
+      .update({ last_message_at: chatbotMessage.created_at })
+      .eq('chat_id', chatId);
+
+    if (lastMessageError) throw lastMessageError;
 
     // Fetch the updated session with all messages
     const { data: updatedSession, error: fetchError } = await supabase
@@ -58,6 +69,14 @@ export const setLanguagePreference = async (req: AuthenticatedRequest, res: Resp
         startedAt: updatedSession.started_at,
         lastMessageAt: updatedSession.last_message_at,
         chatbotActive: updatedSession.chatbot_active,
+        chatbotMessage: {
+          id: chatbotMessage.message_id,
+          chatId: chatbotMessage.chat_id,
+          role: chatbotMessage.role,
+          content: chatbotMessage.content,
+          createdAt: chatbotMessage.created_at,
+          senderId: chatbotMessage.sender_id,
+        },
         messages: (updatedSession.ChatMessages || []).map((msg: ChatMessage) => ({
           id: msg.message_id,
           chatId: msg.chat_id,

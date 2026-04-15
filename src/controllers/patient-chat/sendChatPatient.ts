@@ -43,12 +43,7 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
       });
     }
 
-    if (chatSession.chatbot_active === false) {
-      return res.status(503).json({
-        success: false,
-        message: 'The chatbot is currently unavailable. Please try again later.',
-      });
-    }
+    const chatbotActive = chatSession.chatbot_active !== false;
 
     // 1. Create patient message
     // We .select() after insert to get the DB-generated 'created_at'
@@ -90,6 +85,33 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
       .filter(
         (row) => (row.role === 'patient' || row.role === 'chatbot') && row.content.length > 0,
       ) as Array<{ role: 'patient' | 'chatbot'; content: string }>;
+
+    if (!chatbotActive) {
+      const { error: updateError } = await supabase
+        .from('ChatSession')
+        .update({
+          last_message_at: patientMessage.created_at,
+          chatbot_active: false,
+        })
+        .eq('chat_id', chatId);
+
+      if (updateError) throw updateError;
+
+      return res.status(201).json({
+        success: true,
+        data: {
+          patientMessage: {
+            id: patientMessage.message_id,
+            chatId: patientMessage.chat_id,
+            role: patientMessage.role,
+            content: patientMessage.content,
+            createdAt: patientMessage.created_at,
+            senderId: patientMessage.sender_id,
+          },
+          chatbotMessage: null,
+        },
+      });
+    }
 
     // 3. Pull health context and request AI reply
     const healthContext = await getHealthContext(trimmedContent);

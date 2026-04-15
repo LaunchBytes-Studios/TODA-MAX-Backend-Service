@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { randomUUID } from 'crypto';
 import { supabase } from '../../config/db';
 import { z } from 'zod';
 import { requestAiReply } from '../../services/ai.service';
@@ -69,11 +70,6 @@ const updateChatSession = async (chatId: string, fields: ChatSessionUpdate) => {
     return;
   }
   const { error } = await supabase.from('ChatSession').update(fields).eq('chat_id', chatId);
-  if (error) throw new Error(error.message);
-};
-
-const insertChatMessages = async (messages: ChatMessageInsert[]) => {
-  const { error } = await supabase.from('ChatMessages').insert(messages);
   if (error) throw new Error(error.message);
 };
 
@@ -187,13 +183,6 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
   }
 
   const chatbotActiveEnv = process.env.CHATBOT_ACTIVE;
-  if (chatbotActiveEnv && chatbotActiveEnv !== 'true') {
-    return res.status(503).json({
-      success: false,
-      message: 'The chatbot is currently unavailable. Please try again later.',
-    });
-  }
-
   const patientId = requirePatientId(req);
   const { message, chat_id, language, patient_context } = parsed.data;
   const patientContext = await fetchPatientContext(patientId);
@@ -204,6 +193,7 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
   };
 
   let chatId = chat_id as string;
+  let chatbotActive = chatbotActiveEnv ? chatbotActiveEnv === 'true' : true;
   if (chatId) {
     await assertChatOwnership(chatId, patientId);
     const { data: chatSession, error: chatSessionError } = await supabase
@@ -212,12 +202,7 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
       .eq('chat_id', chatId)
       .single();
     if (chatSessionError) throw new Error(chatSessionError.message);
-    if (chatSession?.chatbot_active === false) {
-      return res.status(503).json({
-        success: false,
-        message: 'The chatbot is currently unavailable. Please try again later.',
-      });
-    }
+    chatbotActive = chatbotActive && chatSession?.chatbot_active !== false;
     if (language) {
       await updateChatSession(chatId, { language });
     }
@@ -231,12 +216,7 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
       .limit(1)
       .single();
     if (existing?.chat_id) {
-      if (existing.chatbot_active === false) {
-        return res.status(503).json({
-          success: false,
-          message: 'The chatbot is currently unavailable. Please try again later.',
-        });
-      }
+      chatbotActive = chatbotActive && existing.chatbot_active !== false;
       chatId = existing.chat_id;
       if (language && existing.language !== language) {
         await updateChatSession(chatId, { language });
@@ -258,6 +238,22 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
     console.log('Health context preview:', preview);
   } else {
     console.log('Health context preview: (empty)');
+  }
+
+  const { data: patientMessage, error: patientMsgError } = await supabase
+    .from('ChatMessages')
+    .insert({
+      message_id: randomUUID(),
+      chat_id: chatId,
+      role: 'patient',
+      sender_id: patientId,
+      content: message.trim(),
+    })
+    .select()
+    .single();
+
+  if (patientMsgError) {
+    throw new Error(patientMsgError.message);
   }
 
   // always call AI service, even if health context is empty. AI service will handle fallback/refusal.
@@ -286,29 +282,48 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
   }
 
   if (!aiResponse?.reply) {
-    throw new Error('AI service returned an empty reply');
+    if (chatbotActive) {
+      throw new Error('AI service returned an empty reply');
+    }
+  }
+
+  if (!chatbotActive) {
+    await updateChatSession(chatId, {
+      chatbot_active: false,
+      last_message_at: patientMessage.created_at,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        chat_id: chatId,
+        reply: null,
+        chatbot_active: false,
+      },
+    });
   }
 
   if (aiResponse.chatbot_active === false) {
     await updateChatSession(chatId, { chatbot_active: false });
   }
 
-  await insertChatMessages([
-    {
-      chat_id: chatId,
-      role: 'patient',
-      sender_id: patientId,
-      content: message.trim(),
-    },
-    {
+  const { data: chatbotMessage, error: chatbotMsgError } = await supabase
+    .from('ChatMessages')
+    .insert({
+      message_id: randomUUID(),
       chat_id: chatId,
       role: 'chatbot',
       sender_id: chatbotId,
       content: aiResponse.reply,
-    },
-  ]);
+    })
+    .select()
+    .single();
 
-  await updateChatSession(chatId, { last_message_at: new Date().toISOString() });
+  if (chatbotMsgError) {
+    throw new Error(chatbotMsgError.message);
+  }
+
+  await updateChatSession(chatId, { last_message_at: chatbotMessage.created_at });
 
   return res.json({
     success: true,
