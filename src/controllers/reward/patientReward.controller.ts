@@ -110,8 +110,7 @@ export const cancelRewardClaim = async (req: PatientRequest, res: Response) => {
   try {
     const patientId = req.user?.userId;
     const rawCode =
-      (Array.isArray(req.params.code) ? req.params.code[0] : req.params.code) ??
-      req.body?.code;
+      (Array.isArray(req.params.code) ? req.params.code[0] : req.params.code) ?? req.body?.code;
     const code = String(rawCode ?? '').trim();
 
     if (!patientId) {

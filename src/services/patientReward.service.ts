@@ -359,7 +359,10 @@ export const cancelRewardClaimByPatientService = async (
     return { type: 'not_pending' };
   }
 
-  const [patient, reward] = await Promise.all([getPatientById(patientId), claim.reward_id ? getRewardById(claim.reward_id) : Promise.resolve(null)]);
+  const [patient, reward] = await Promise.all([
+    getPatientById(patientId),
+    claim.reward_id ? getRewardById(claim.reward_id) : Promise.resolve(null),
+  ]);
 
   if (!patient || !reward) {
     return { type: 'not_found' };
