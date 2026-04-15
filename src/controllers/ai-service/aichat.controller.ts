@@ -222,7 +222,13 @@ export const chatWithAi = asyncHandler('Failed to process chat', async (req, res
   }
 
   const history = await fetchChatHistory(chatId);
-  const healthContext = await getHealthContext(message);
+
+  const buildConversationQuery = (history: ChatHistoryItem[], latestMessage: string) =>
+    [...history.map((item) => item.content), latestMessage.trim()].join(' ').trim();
+
+  const conversationQuery = buildConversationQuery(history, message).slice(0, 4000);
+
+  const healthContext = await getHealthContext(conversationQuery);
   // Ensure healthContext is always a string (legacy code may have returned Chunk[])
   const healthContextStr = typeof healthContext === 'string' ? healthContext : '';
   const trimmedHealthContext = healthContextStr.trim().slice(0, 4000);
