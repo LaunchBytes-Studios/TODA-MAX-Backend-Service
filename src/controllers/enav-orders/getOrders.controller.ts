@@ -47,22 +47,8 @@ export const getOrders = async (req: Request, res: Response) => {
       return res.status(400).json({ message: error.message });
     }
 
-    console.log('limit:', limit, 'offset:', offset);
-    console.log('returned rows:', orders?.length);
-
-    if (!orders || orders.length === 0) {
-      return res.status(200).json({
-        success: true,
-        data: [],
-        pagination: {
-          total: count || 0,
-          offset,
-          limit,
-          returned: 0,
-          totalPages: Math.ceil((count || 0) / limit),
-        },
-      });
-    }
+    // console.log('limit:', limit, 'offset:', offset);
+    // console.log('returned rows:', orders?.length);
 
     const orderIds = orders.map((o) => o.order_id);
     const patientIds = orders.map((o) => o.patient_id);
