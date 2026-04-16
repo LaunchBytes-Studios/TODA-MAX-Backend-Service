@@ -34,10 +34,11 @@ export const getChatSessionById = async (req: Request, res: Response) => {
       success: true,
       data,
     });
-  } catch (err: any) {
+  } catch (err) {
+    console.error('Error hydrating session:', err);
     return res.status(500).json({
       success: false,
-      message: err.message || 'Internal server error',
+      message: 'Internal server error',
     });
   }
 };
