@@ -113,7 +113,7 @@ export const getOrders = async (req: Request, res: Response) => {
       }
 
       return {
-        id: order.order_id,
+        order_id: order.order_id,
         order_number: order.order_id.substring(0, 8).toUpperCase(),
         patient_name: patient ? `${patient.firstname} ${patient.surname}` : 'Unknown',
         patient_diagnosis: diagnosisString,
