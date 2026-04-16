@@ -16,6 +16,7 @@ import { getOrders, updateOrderStatus } from '../controllers/enav-orders/order.c
 import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessionsWithPatients.ts';
 import { getMessagesByChatId } from '../controllers/enav-chats/getMessages.ts';
 import { sendMessage } from '../controllers/enav-chats/sendMessage.ts';
+import { updateChatbotStatus } from '../controllers/enav-chats/updateChatbotStatus.ts';
 
 const router = Router();
 
@@ -46,5 +47,6 @@ router.get('/orders', authenticate, getOrders);
 router.get('/supportChat/chat-sessions', authenticate, getChatSessionsWithPatients);
 router.get('/supportChat/:chatId/messages', authenticate, getMessagesByChatId);
 router.post('/supportChat/:chatId/messages', authenticate, sendMessage);
+router.patch('/supportChat/:chatId/chatbot', authenticate, updateChatbotStatus);
 
 export default router;
