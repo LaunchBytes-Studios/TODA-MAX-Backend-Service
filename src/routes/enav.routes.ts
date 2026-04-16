@@ -17,6 +17,7 @@ import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessio
 import { getMessagesByChatId } from '../controllers/enav-chats/getMessages.ts';
 import { sendMessage } from '../controllers/enav-chats/sendMessage.ts';
 import { updateChatbotStatus } from '../controllers/enav-chats/updateChatbotStatus.ts';
+import { getChatSessionById } from '../controllers/enav-chats/getChatSessionById.ts';
 
 const router = Router();
 
@@ -45,6 +46,7 @@ router.get('/orders', authenticate, getOrders);
 
 //eNav utility routes - Support Chat
 router.get('/supportChat/chat-sessions', authenticate, getChatSessionsWithPatients);
+router.get('/supportChat/:chatId', authenticate, getChatSessionById);
 router.get('/supportChat/:chatId/messages', authenticate, getMessagesByChatId);
 router.post('/supportChat/:chatId/messages', authenticate, sendMessage);
 router.patch('/supportChat/:chatId/chatbot', authenticate, updateChatbotStatus);
