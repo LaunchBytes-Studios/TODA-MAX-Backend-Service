@@ -28,7 +28,7 @@ export type AiChatResponse = {
 const getAiServiceConfig = () => {
   const url = process.env.AI_SERVICE_URL;
   const key = process.env.AI_SERVICE_KEY;
-  const timeout = Number(process.env.AI_SERVICE_TIMEOUT_MS ?? 30000);
+  const timeout = Number(process.env.AI_SERVICE_TIMEOUT_MS ?? 60000); // Increased default timeout to 60s
 
   if (!url || !key) {
     throw new Error('Missing AI_SERVICE_URL or AI_SERVICE_KEY');

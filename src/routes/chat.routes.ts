@@ -4,7 +4,7 @@ import { sendChatMessage } from '../controllers/patient-chat/sendChatPatient';
 import { setLanguagePreference } from '../controllers/patient-chat/setLanguagePreference';
 import { authenticatePatient } from '../middleware/auth';
 import { streamChatMessages } from '../controllers/patient-chat/streamChatMessages';
-import { chatWithAi } from '../controllers/ai-service/aichat.controller';
+import { chatWithAi } from '../controllers/ai-service/chatWithAi.controller';
 
 const router = Router();
 
