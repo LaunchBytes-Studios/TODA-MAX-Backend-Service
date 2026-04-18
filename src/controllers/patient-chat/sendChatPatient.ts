@@ -4,7 +4,6 @@ import { randomUUID } from 'crypto';
 import { AuthenticatedRequest } from '../../types/patient-chat';
 import { requestAiReply } from '../../services/ai.service';
 
-
 const chatbotId = process.env.CHATBOT_ID;
 if (!chatbotId) {
   throw new Error('Missing CHATBOT_ID');
@@ -64,7 +63,8 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
       .eq('chat_id', chatId)
       .single();
 
-    if (sessionError || !chatSessionRefetch) throw sessionError || new Error('Chat session not found');
+    if (sessionError || !chatSessionRefetch)
+      throw sessionError || new Error('Chat session not found');
 
     const chatbotActive = chatSessionRefetch.chatbot_active !== false;
 

@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 import { Response, Request } from 'express';
@@ -29,7 +28,6 @@ const chatSchema = z.object({
     })
     .optional(),
 });
-
 
 export const chatWithAi = async (req: Request, res: Response): Promise<Response> => {
   console.log('[chatWithAiHandler] Incoming request:', {
@@ -90,7 +88,6 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
     chatId = existing?.chat_id ?? (await createChatSession(patientId, language));
   }
 
-
   // Insert patient message
   const { data: patientMessage, error: patientMsgError } = await supabase
     .from('ChatMessages')
@@ -105,7 +102,6 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
     .single();
   if (patientMsgError) throw new Error(patientMsgError.message);
 
-
   // Respond immediately to the client (do not wait for AI)
   res.status(200).json({
     success: true,
@@ -116,8 +112,8 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
     },
   });
   console.log('[chatWithAiHandler] Responded to client, starting AI background logic...');
-  
-    // --- AI reply logic in background ---
+
+  // --- AI reply logic in background ---
 
   setImmediate(async () => {
     try {
@@ -143,7 +139,8 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
           message: message.trim(),
           history,
           health_context: trimmedHealthContext || undefined,
-          patient_context: Object.keys(mergedPatientContext).length > 0 ? mergedPatientContext : undefined,
+          patient_context:
+            Object.keys(mergedPatientContext).length > 0 ? mergedPatientContext : undefined,
         });
         console.log('[chatWithAiHandler] [AI background] AI response:', aiResponse);
       } catch (error) {
@@ -203,7 +200,4 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
     }
   });
   return res;
-
-
-  
 };
