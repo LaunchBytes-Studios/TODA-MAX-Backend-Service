@@ -65,7 +65,7 @@ export const fetchChatHistory = async (chatId: string): Promise<ChatHistoryItem[
     .select('role, content')
     .eq('chat_id', chatId)
     .order('created_at', { ascending: false })
-    .limit(6);
+    .limit(3);
 
   if (error) {
     throw new Error(error.message);
