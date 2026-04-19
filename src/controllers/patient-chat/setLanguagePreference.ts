@@ -6,7 +6,7 @@ import { AuthenticatedRequest, ChatMessage } from '../../types/patient-chat';
 const LANGUAGE_CONFIRMATION_MESSAGES: Record<string, string> = {
   english: "Great! I'll help you in English.",
   tagalog: 'Sige! Tutulungan kita gamit ang Tagalog.',
-  hiligaynon: 'Sige! Mabulig ako sa imo gamit ang Hiligaynon.',
+  hiligaynon: 'Sige! Buligan taka gamit ang Hiligaynon.',
 };
 
 export const setLanguagePreference = async (req: AuthenticatedRequest, res: Response) => {
