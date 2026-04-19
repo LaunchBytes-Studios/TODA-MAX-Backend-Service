@@ -3,6 +3,12 @@ import { supabase } from '../../config/db';
 import { randomUUID } from 'crypto';
 import { AuthenticatedRequest, ChatMessage } from '../../types/patient-chat';
 
+const LANGUAGE_CONFIRMATION_MESSAGES: Record<string, string> = {
+  english: "Great! I'll help you in English.",
+  tagalog: 'Sige! Tutulungan kita sa Tagalog.',
+  hiligaynon: 'Sige! Mabulig ako sa imo sa Hiligaynon.',
+};
+
 export const setLanguagePreference = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { chatId, language } = req.body;
@@ -66,7 +72,7 @@ export const setLanguagePreference = async (req: AuthenticatedRequest, res: Resp
         message_id: randomUUID(),
         chat_id: chatId,
         role: 'chatbot',
-        content: `Great! I'll help you in ${language}.`,
+        content: LANGUAGE_CONFIRMATION_MESSAGES[language] || "Great! I'll help you in English.",
       })
       .select()
       .single();
