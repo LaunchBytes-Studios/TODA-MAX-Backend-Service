@@ -41,7 +41,7 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
       });
     }
 
-    // Only insert patient message and update session
+    // Insert patient message
     const { data: patientMessage, error: patientMsgError } = await supabase
       .from('ChatMessages')
       .insert({
@@ -56,42 +56,30 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
 
     if (patientMsgError) throw patientMsgError;
 
+    const chatbotActive = chatSession.chatbot_active !== false;
+
     // Update chat session last_message_at
-    const { data: chatSessionRefetch, error: sessionError } = await supabase
-      .from('ChatSession')
-      .select('language, chatbot_active')
-      .eq('chat_id', chatId)
-      .single();
-
-    if (sessionError || !chatSessionRefetch)
-      throw sessionError || new Error('Chat session not found');
-
-    const chatbotActive = chatSessionRefetch.chatbot_active !== false;
-
     const { error: updateError } = await supabase
       .from('ChatSession')
       .update({
-        last_message_at: patientMessage.created_at,
+        last_message_at: new Date().toISOString(),
       })
       .eq('chat_id', chatId);
 
     if (updateError) throw updateError;
 
-    // If chatbot is active, trigger AI reply in background (fire-and-forget)
+    // If chatbot is active, trigger AI reply in background
     if (chatbotActive) {
-      // You can add more context/history if needed, or keep it minimal for now
       requestAiReply({
         message: trimmedContent,
-        language: chatSessionRefetch.language ?? undefined,
-        history: undefined, // or fetch history if needed
+        language: chatSession.language ?? undefined,
+        history: undefined,
         health_context: undefined,
       }).catch((err) => {
-        // Log error but do not block response
         console.error('[sendChatMessage AI background error]', err);
       });
     }
 
-    // Return only the patient message (no chatbot reply)
     return res.status(201).json({
       success: true,
       data: {
