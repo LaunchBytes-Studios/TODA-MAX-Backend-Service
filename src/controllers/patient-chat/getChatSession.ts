@@ -1,0 +1,156 @@
+import { Response } from 'express';
+import { supabase } from '../../config/db';
+import { randomUUID } from 'crypto';
+import { AuthenticatedRequest, ChatMessage } from '../../types/patient-chat';
+
+const INITIAL_CHATBOT_MESSAGE = 'What language do you understand best?';
+
+const mapMessages = (messages: ChatMessage[] = []) =>
+  messages.map((msg: ChatMessage) => ({
+    id: msg.message_id,
+    chatId: msg.chat_id,
+    role: msg.role,
+    content: msg.content,
+    createdAt: msg.created_at,
+    senderId: msg.sender_id,
+  }));
+
+const insertInitialMessage = async (chatId: string) => {
+  const { data: initialMessage, error: initialMessageError } = await supabase
+    .from('ChatMessages')
+    .insert({
+      message_id: randomUUID(),
+      chat_id: chatId,
+      role: 'chatbot',
+      content: INITIAL_CHATBOT_MESSAGE,
+    })
+    .select()
+    .single();
+
+  if (initialMessageError) throw initialMessageError;
+
+  const { error: updateLastMessageError } = await supabase
+    .from('ChatSession')
+    .update({ last_message_at: initialMessage.created_at })
+    .eq('chat_id', chatId);
+
+  if (updateLastMessageError) throw updateLastMessageError;
+};
+
+export const getChatSession = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Get patient ID from params or reject if not provided
+    const { patientId } = req.params;
+
+    if (!patientId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Patient ID is required',
+      });
+    }
+
+    // Check if a chat session exists for this patient
+    const { data: existingSession, error: fetchError } = await supabase
+      .from('ChatSession')
+      .select('*')
+      .eq('patient_id', patientId)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    // If no session exists, create a new one
+    if (fetchError || !existingSession) {
+      const newSessionId = randomUUID();
+      const { error: createError } = await supabase
+        .from('ChatSession')
+        .insert({
+          chat_id: newSessionId,
+          patient_id: patientId,
+          language: null,
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      // Add initial chatbot message
+      await insertInitialMessage(newSessionId);
+
+      // Fetch the session with messages
+      const { data: sessionWithMessages, error: fetchWithMessagesError } = await supabase
+        .from('ChatSession')
+        .select('*, ChatMessages(*)')
+        .eq('chat_id', newSessionId)
+        .single();
+
+      if (fetchWithMessagesError) throw fetchWithMessagesError;
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          id: sessionWithMessages.chat_id,
+          patientId: sessionWithMessages.patient_id,
+          language: sessionWithMessages.language,
+          startedAt: sessionWithMessages.started_at,
+          lastMessageAt: sessionWithMessages.last_message_at,
+          chatbotActive: sessionWithMessages.chatbot_active,
+          messages: mapMessages(sessionWithMessages.ChatMessages || []),
+        },
+      });
+    }
+
+    // Fetch existing session with messages
+    const { data: sessionWithMessages, error: fetchWithMessagesError } = await supabase
+      .from('ChatSession')
+      .select('*, ChatMessages(*)')
+      .eq('chat_id', existingSession.chat_id)
+      .single();
+
+    if (fetchWithMessagesError) throw fetchWithMessagesError;
+
+    // Guarantee a first chatbot message for existing sessions that have no messages yet
+    if (!sessionWithMessages.ChatMessages || sessionWithMessages.ChatMessages.length === 0) {
+      await insertInitialMessage(existingSession.chat_id);
+
+      const { data: refreshedSession, error: refreshedSessionError } = await supabase
+        .from('ChatSession')
+        .select('*, ChatMessages(*)')
+        .eq('chat_id', existingSession.chat_id)
+        .single();
+
+      if (refreshedSessionError) throw refreshedSessionError;
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          id: refreshedSession.chat_id,
+          patientId: refreshedSession.patient_id,
+          language: refreshedSession.language,
+          startedAt: refreshedSession.started_at,
+          lastMessageAt: refreshedSession.last_message_at,
+          chatbotActive: refreshedSession.chatbot_active,
+          messages: mapMessages(refreshedSession.ChatMessages || []),
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: sessionWithMessages.chat_id,
+        patientId: sessionWithMessages.patient_id,
+        language: sessionWithMessages.language,
+        startedAt: sessionWithMessages.started_at,
+        lastMessageAt: sessionWithMessages.last_message_at,
+        chatbotActive: sessionWithMessages.chatbot_active,
+        messages: mapMessages(sessionWithMessages.ChatMessages || []),
+      },
+    });
+  } catch (error) {
+    console.error('[getChatSession error]', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get or create chat session',
+    });
+  }
+};

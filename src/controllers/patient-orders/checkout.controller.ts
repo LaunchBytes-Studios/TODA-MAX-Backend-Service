@@ -1,5 +1,6 @@
 import { supabase } from '../../config/db';
 import { createOrderService } from '../../services/ordering.service';
+import { awardPatientPointsForEvent } from '../../services/patientPoints.service';
 import { asyncHandler, requirePatientId, sumItemQuantities } from '../../utils/helpers';
 
 export const checkout = asyncHandler('Failed to create order', async (req, res) => {
@@ -118,6 +119,18 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
     delivery_address: deliveryAddress,
   });
 
+  let pointsAward: Awaited<ReturnType<typeof awardPatientPointsForEvent>> | null = null;
+
+  try {
+    pointsAward = await awardPatientPointsForEvent({
+      patientId,
+      eventType: 'order_placement',
+      sourceId: result.order.order_id,
+    });
+  } catch (pointsError) {
+    console.error('Failed to award order placement points:', pointsError);
+  }
+
   return res.status(201).json({
     success: true,
     message: 'Order and items created successfully',
@@ -125,6 +138,7 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
       order: result.order,
       items: result.items,
       total_items: sumItemQuantities(result.items),
+      pointsAward,
     },
   });
 });

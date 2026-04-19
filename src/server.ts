@@ -5,6 +5,7 @@ import trackedMedicationRoutes from './routes/trackedmedication.routes';
 import medicationRoutes from './routes/medication.routes';
 import rewardRoutes from './routes/reward.routes';
 import orderingRoutes from './routes/ordering.routes';
+import chatRoutes from './routes/chat.routes';
 import cors from 'cors';
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/rewards', rewardRoutes);
 app.use('/medications', medicationRoutes);
 app.use('/orders', orderingRoutes);
 app.use('/trackedmedications', trackedMedicationRoutes);
+app.use('/chat', chatRoutes);
 
 /* -------------------------
    404 handler
@@ -65,4 +67,37 @@ app.use((err: Error & { type?: string }, _req: Request, res: Response, _next: Ne
 /* -------------------------
    Server
 --------------------------*/
-app.listen(PORT, '0.0.0.0', () => console.log(`Server is running on http://localhost:${PORT}`));
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 TODA MAX Backend is active!`);
+  console.log(`📡 URL: http://localhost:${PORT}`);
+  console.log(`📂 Routes initialized: /enavigator, /patients, /rewards, etc.`);
+});
+
+// PREVENT CLEAN EXIT: Keep the process alive
+// If the server tries to close unexpectedly, this will help us see why
+server.on('close', () => {
+  console.log('⚠️ Server connection closed!');
+});
+
+server.on('error', (err) => {
+  console.error('❌ Server error:', err);
+});
+
+// This keeps the Node.js event loop busy so it doesn't "Clean Exit"
+setInterval(
+  () => {
+    // Just a heartbeat to keep the process alive if needed
+  },
+  1000 * 60 * 60,
+);
+
+/* -------------------------
+   Uncaught Exception Handler
+--------------------------*/
+process.on('uncaughtException', (err) => {
+  console.error('🔥 There was an uncaught error', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🛠️ Unhandled Rejection at:', promise, 'reason:', reason);
+});

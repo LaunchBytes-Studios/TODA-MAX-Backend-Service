@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../../config/db';
+import { awardPatientPointsForEvent } from '../../services/patientPoints.service';
 
 import {
   DoseStatus,
@@ -97,10 +98,24 @@ export const toggleDayDose = async (req: Request, res: Response) => {
 
     if (dayUpdateError) throw dayUpdateError;
 
+    let pointsAward: Awaited<ReturnType<typeof awardPatientPointsForEvent>> | null = null;
+
+    if (dayStatus === 'complete' && total > 0) {
+      try {
+        pointsAward = await awardPatientPointsForEvent({
+          patientId,
+          eventType: 'daily_medication_completion',
+        });
+      } catch (pointsError) {
+        console.error('Failed to award daily medication completion points:', pointsError);
+      }
+    }
+
     return res.json({
       success: true,
       status: newStatus,
       day_status: dayStatus,
+      pointsAward,
     });
   } catch (err) {
     console.error(err);

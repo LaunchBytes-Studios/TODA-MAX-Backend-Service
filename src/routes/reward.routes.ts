@@ -6,16 +6,25 @@ import {
   getRewardById,
   updateReward,
 } from '../controllers/reward/reward.controller';
+import {
+  getMyRewardClaims,
+  cancelRewardClaim,
+  redeemRewardByPatient,
+} from '../controllers/reward/patientReward.controller';
 import { authenticate } from '../middleware/enav.middleware';
+import { authenticatePatient } from '../middleware/auth';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.get('/claims/me', authenticatePatient, getMyRewardClaims);
+router.post('/claims/cancel', authenticatePatient, cancelRewardClaim);
+router.post('/claims/:code/cancel', authenticatePatient, cancelRewardClaim);
+router.get('/', authenticatePatient, getAllRewards);
+router.get('/:id', authenticatePatient, getRewardById);
+router.post('/:id/redeem', authenticatePatient, redeemRewardByPatient);
 
-router.get('/', getAllRewards);
-router.get('/:id', getRewardById);
-router.post('/', createReward);
-router.put('/:id', updateReward);
-router.delete('/:id', deleteReward);
+router.post('/', authenticate, createReward);
+router.put('/:id', authenticate, updateReward);
+router.delete('/:id', authenticate, deleteReward);
 
 export default router;
