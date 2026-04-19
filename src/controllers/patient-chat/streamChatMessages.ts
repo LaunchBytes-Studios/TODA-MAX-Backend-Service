@@ -39,6 +39,8 @@ export const streamChatMessages = async (req: Request, res: Response) => {
           senderId: payload.new.sender_id,
         };
 
+        // Log the message being emitted to SSE
+        console.log('[SSE] Emitting message:', formattedMessage);
         // Write to the SSE stream
         res.write(`data: ${JSON.stringify(formattedMessage)}\n\n`);
       },
