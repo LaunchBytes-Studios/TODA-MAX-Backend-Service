@@ -1,4 +1,5 @@
 import { Request } from 'express';
+import { Patient } from './patient';
 
 /**
  * JWT Payload structure matching auth middleware
@@ -28,15 +29,17 @@ export interface ChatMessage {
   sender_id: string | null;
 }
 
-/**
- * Chat session with messages
- */
-export interface ChatSessionData {
+export interface ChatSessionBase {
   chat_id: string;
   patient_id: string;
   language: string | null;
   started_at: string;
   last_message_at: string | null;
   chatbot_active: boolean;
-  ChatMessages: ChatMessage[];
+  last_read_at: string | null;
+  unread_count: number;
+}
+
+export interface ChatSessionWithPatient extends ChatSessionBase {
+  patient: Patient | null;
 }
