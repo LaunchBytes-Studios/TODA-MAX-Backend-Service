@@ -2,22 +2,22 @@ import { Router } from 'express';
 import { login, me } from '../controllers/enavigator/loginEnav';
 import { authenticate } from '../middleware/enav.middleware';
 
-import { generateRegistrationCode } from '../controllers/registration/generateRegistrationCodes.controller.ts';
-import { getRegistrationCode } from '../controllers/registration/getRegistrationCode.controller.ts';
-import { maintenanceRegistrationCode } from '../controllers/registration/maintenanceRegistration.controller.ts';
-import { makeAnnouncement } from '../controllers/announcement/postAnnouncement.controller.ts';
-import { getAnnouncement } from '../controllers/announcement/getAnnouncement.controller.ts';
-import { alertMedication } from '../controllers/medication/alertMedication.controller.ts';
+import { generateRegistrationCode } from '../controllers/registration/generateRegistrationCodes.controller';
+import { getRegistrationCode } from '../controllers/registration/getRegistrationCode.controller';
+import { maintenanceRegistrationCode } from '../controllers/registration/maintenanceRegistration.controller';
+import { makeAnnouncement } from '../controllers/announcement/postAnnouncement.controller';
+import { getAnnouncement } from '../controllers/announcement/getAnnouncement.controller';
+import { alertMedication } from '../controllers/medication/alertMedication.controller';
 import {
   finalizeRewardCode,
   verifyRewardCode,
-} from '../controllers/reward/rewardVerification.controller.ts';
-import { getOrders, updateOrderStatus } from '../controllers/enav-orders/order.controller.ts';
-import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessionsWithPatients.ts';
-import { getMessagesByChatId } from '../controllers/enav-chats/getMessages.ts';
-import { sendMessage } from '../controllers/enav-chats/sendMessage.ts';
-import { updateChatbotStatus } from '../controllers/enav-chats/updateChatbotStatus.ts';
-import { getChatSessionById } from '../controllers/enav-chats/getChatSessionById.ts';
+} from '../controllers/reward/rewardVerification.controller';
+import { getOrders, updateOrderStatus } from '../controllers/enav-orders/order.controller';
+import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessionsWithPatients';
+import { getMessagesByChatId } from '../controllers/enav-chats/getMessages';
+import { sendMessage } from '../controllers/enav-chats/sendMessage';
+import { updateChatbotStatus } from '../controllers/enav-chats/updateChatbotStatus';
+import { getChatSessionById } from '../controllers/enav-chats/getChatSessionById';
 
 const router = Router();
 
