@@ -1,6 +1,5 @@
 // controllers/patient-chat/streamChatMessages.ts
 import { Request, Response } from 'express';
-import { supabase } from '../../config/db';
 import { createClient } from '@supabase/supabase-js';
 
 export const anonSupabase = createClient(
