@@ -22,7 +22,7 @@ export const getOrders = async (req: Request, res: Response) => {
     if (req.query.search) {
       const search = (req.query.search as string)?.toLowerCase();
       if (search) {
-        query = query.filter('order_id::text', 'ilike', `${search}%`);
+        query = query.or(`order_id::text.ilike.${search}%`);
       }
     }
 
