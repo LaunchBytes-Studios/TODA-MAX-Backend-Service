@@ -21,8 +21,9 @@ export const getOrders = async (req: Request, res: Response) => {
     }
     if (req.query.search) {
       const search = (req.query.search as string)?.toLowerCase();
+      let query = supabase.from('OrderView').select('*', { count: 'exact' });
       if (search) {
-        query = query.or(`order_id::text.ilike.${search}%`);
+        query = query.ilike('order_number_text', `${search}%`);
       }
     }
 
