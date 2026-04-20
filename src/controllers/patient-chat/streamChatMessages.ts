@@ -24,26 +24,28 @@ export const streamChatMessages = async (req: Request, res: Response) => {
     .on(
       'postgres_changes',
       {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'ChatMessages',
-        filter: `chat_id=eq.${chatId}`,
       },
       (payload) => {
-        // Map DB snake_case to Frontend camelCase
-        const formattedMessage = {
-          id: payload.new.message_id,
-          chatId: payload.new.chat_id,
-          role: payload.new.role,
-          content: payload.new.content,
-          createdAt: payload.new.created_at,
-          senderId: payload.new.sender_id,
-        };
+        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+        if (payload.eventType === 'INSERT') {
+          // Map DB snake_case to Frontend camelCase
+          const formattedMessage = {
+            id: payload.new.message_id,
+            chatId: payload.new.chat_id,
+            role: payload.new.role,
+            content: payload.new.content,
+            createdAt: payload.new.created_at,
+            senderId: payload.new.sender_id,
+          };
 
-        // Log the message being emitted to SSE
-        console.log('[SSE] Emitting message:', formattedMessage);
-        // Write to the SSE stream
-        res.write(`data: ${JSON.stringify(formattedMessage)}\n\n`);
+          // Log the message being emitted to SSE
+          console.log('[SSE] Emitting message:', formattedMessage);
+          // Write to the SSE stream
+          res.write(`data: ${JSON.stringify(formattedMessage)}\n\n`);
+        }
       },
     )
     .subscribe();
