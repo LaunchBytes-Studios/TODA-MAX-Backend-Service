@@ -1,6 +1,18 @@
 // controllers/patient-chat/streamChatMessages.ts
 import { Request, Response } from 'express';
 import { supabase } from '../../config/db';
+import { createClient } from '@supabase/supabase-js';
+
+export const anonSupabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!, // 👈 change this
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  },
+);
 
 export const streamChatMessages = async (req: Request, res: Response) => {
   const { chatId } = req.params;
@@ -18,9 +30,8 @@ export const streamChatMessages = async (req: Request, res: Response) => {
     res.write(': heartbeat\n\n');
   }, 15000);
 
-  supabase.realtime.setAuth(process.env.SUPABASE_SERVICE_ROLE_KEY!);
   // 3. Subscribe to Supabase Realtime for THIS chat session
-  const channel = supabase
+  const channel = anonSupabase
     .channel(`realtime_chat_${chatId}`)
     .on(
       'postgres_changes',
@@ -56,7 +67,7 @@ export const streamChatMessages = async (req: Request, res: Response) => {
   // 4. Cleanup when Frontend closes connection
   req.on('close', () => {
     clearInterval(heartbeat);
-    supabase.removeChannel(channel);
+    anonSupabase.removeChannel(channel);
     res.end();
   });
 };
