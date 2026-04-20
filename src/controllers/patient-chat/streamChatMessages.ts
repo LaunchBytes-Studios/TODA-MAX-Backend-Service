@@ -18,6 +18,7 @@ export const streamChatMessages = async (req: Request, res: Response) => {
     res.write(': heartbeat\n\n');
   }, 15000);
 
+  supabase.realtime.setAuth(process.env.SUPABASE_SERVICE_ROLE_KEY!);
   // 3. Subscribe to Supabase Realtime for THIS chat session
   const channel = supabase
     .channel(`realtime_chat_${chatId}`)
