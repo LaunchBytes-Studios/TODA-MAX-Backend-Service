@@ -26,7 +26,7 @@ export const getOrders = async (req: Request, res: Response) => {
     }
 
     if (search) {
-      query = query.ilike('order_number_text', `${search}%`);
+      query = query.or(`order_number_text.ilike.${search}%,patient_name.ilike.%${search}%`);
     }
 
     const { data: allStatuses, error: statsError } = await supabase.from('Order').select('status');
