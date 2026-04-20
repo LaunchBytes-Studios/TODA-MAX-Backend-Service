@@ -48,7 +48,9 @@ export const streamChatMessages = async (req: Request, res: Response) => {
         }
       },
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log('[SSE SUBSCRIBE STATUS]', status);
+    });
 
   // 4. Cleanup when Frontend closes connection
   req.on('close', () => {
