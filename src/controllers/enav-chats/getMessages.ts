@@ -25,9 +25,18 @@ export const getMessagesByChatId = async (req: Request, res: Response) => {
       `,
       )
       .eq('chat_id', chatId)
-      .order('created_at', { ascending: true }); // oldest → newest
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
+
+    const { error: updateError } = await supabase
+      .from('ChatSession')
+      .update({
+        last_read_at: new Date().toISOString(),
+      })
+      .eq('chat_id', chatId);
+
+    if (updateError) throw updateError;
 
     return res.status(200).json({
       success: true,
