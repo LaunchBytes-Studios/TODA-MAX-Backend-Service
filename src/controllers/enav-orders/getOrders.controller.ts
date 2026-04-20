@@ -20,7 +20,10 @@ export const getOrders = async (req: Request, res: Response) => {
       query = query.eq('delivery_type', req.query.delivery_type);
     }
     if (req.query.search) {
-      query = query.ilike('order_id', `%${req.query.search}%`);
+      const search = (req.query.search as string)?.toLowerCase();
+      if (search) {
+        query = query.filter('order_id::text', 'ilike', `${search}%`);
+      }
     }
 
     const { data: allStatuses, error: statsError } = await supabase.from('Order').select('status');
