@@ -10,6 +10,7 @@ export const streamChatMessages = async (req: Request, res: Response) => {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
   });
 
   // 2. Heartbeat to prevent connection timeout (every 15s)
