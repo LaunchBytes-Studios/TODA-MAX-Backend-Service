@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import type { Request, Response } from 'express';
 
-vi.mock('../../config/db', () => ({
+vi.mock('../../../config/db', () => ({
   supabase: {
     from: vi.fn(),
   },
@@ -53,7 +53,7 @@ describe('getAnnouncement', () => {
     expect(res.json).toHaveBeenCalledWith([
       expect.objectContaining({
         announce_id: 1,
-        title: 'Test',
+        title: 'Low Stock Alert',
         content: 'Hello',
         createdAt: '2024-01-01',
         updatedAt: '2024-01-02',

@@ -2,12 +2,12 @@ import { makeAnnouncement } from '../postAnnouncement.controller';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Request, Response } from 'express';
 
-vi.mock('../../config/db', () => ({
+vi.mock('../../../config/db', () => ({
   supabase: {
     from: vi.fn(),
   },
 }));
-vi.mock('../../utils/getFirstEnavId', () => ({
+vi.mock('../../../utils/getFirstEnavId', () => ({
   getFirstEnavId: vi.fn(),
 }));
 
