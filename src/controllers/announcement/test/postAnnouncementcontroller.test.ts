@@ -1,4 +1,4 @@
-import { makeAnnouncement } from './postAnnouncement.controller';
+import { makeAnnouncement } from '../postAnnouncement.controller';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Request, Response } from 'express';
 
@@ -11,8 +11,8 @@ vi.mock('../../utils/getFirstEnavId', () => ({
   getFirstEnavId: vi.fn(),
 }));
 
-import { supabase } from '../../config/db';
-import { getFirstEnavId } from '../../utils/getFirstEnavId';
+import { supabase } from '../../../config/db';
+import { getFirstEnavId } from '../../../utils/getFirstEnavId';
 
 describe('makeAnnouncement', () => {
   let req: Request;
