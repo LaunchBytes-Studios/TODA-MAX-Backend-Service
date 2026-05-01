@@ -1,4 +1,4 @@
-import { getAnnouncement } from './getAnnouncement.controller';
+import { getAnnouncement } from '../getAnnouncement.controller';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import type { Request, Response } from 'express';
@@ -9,7 +9,7 @@ vi.mock('../../config/db', () => ({
   },
 }));
 
-import { supabase } from '../../config/db';
+import { supabase } from '../../../config/db';
 
 describe('getAnnouncement', () => {
   let req: Request;
@@ -26,7 +26,7 @@ describe('getAnnouncement', () => {
 
   it('should return all announcements (200)', async () => {
     const selectMock = vi.fn().mockResolvedValue({
-      data: [{ announce_id: 1, title: 'Test', content: 'Hello', createdAt: '2024-01-01', updatedAt: '2024-01-02' }],
+      data: [{ announce_id: 1, title: 'Low Stock Alert', content: 'Hello', createdAt: '2024-01-01', updatedAt: '2024-01-02' }, { announce_id: 2, title: 'Test2', content: 'World', createdAt: '2024-01-03', updatedAt: '2024-01-04' }],
       error: null,
     });
     (supabase.from as Mock).mockReturnValue({ select: selectMock });
@@ -42,6 +42,13 @@ describe('getAnnouncement', () => {
         content: 'Hello',
         createdAt: '2024-01-01',
         updatedAt: '2024-01-02',
+      }),
+      expect.objectContaining({
+        announce_id: 2,
+        title: 'Test2',
+        content: 'World',
+        createdAt: '2024-01-03',
+        updatedAt: '2024-01-04',
       }),
     ]);
   });
