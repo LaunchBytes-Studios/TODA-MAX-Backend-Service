@@ -11,13 +11,17 @@ import { alertMedication } from '../controllers/medication/alertMedication.contr
 import {
   finalizeRewardCode,
   verifyRewardCode,
-} from '../controllers/reward/rewardVerification.controller';
-import { getOrders, updateOrderStatus } from '../controllers/enav-orders/order.controller';
-import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessionsWithPatients';
-import { getMessagesByChatId } from '../controllers/enav-chats/getMessages';
-import { sendMessage } from '../controllers/enav-chats/sendMessage';
-import { updateChatbotStatus } from '../controllers/enav-chats/updateChatbotStatus';
-import { getChatSessionById } from '../controllers/enav-chats/getChatSessionById';
+} from '../controllers/reward/rewardVerification.controller.ts';
+import {
+  getOrders,
+  updateOrderStatus,
+  updateOrderType,
+} from '../controllers/enav-orders/order.controller.ts';
+import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessionsWithPatients.ts';
+import { getMessagesByChatId } from '../controllers/enav-chats/getMessages.ts';
+import { sendMessage } from '../controllers/enav-chats/sendMessage.ts';
+import { updateChatbotStatus } from '../controllers/enav-chats/updateChatbotStatus.ts';
+import { getChatSessionById } from '../controllers/enav-chats/getChatSessionById.ts';
 
 const router = Router();
 
@@ -42,6 +46,7 @@ router.get('/rewardCodes/verify', authenticate, verifyRewardCode);
 router.post('/rewardCodes/finalize', authenticate, finalizeRewardCode);
 //Orders
 router.patch('/orders/:id/status', authenticate, updateOrderStatus);
+router.patch('/orders/:id/type', authenticate, updateOrderType);
 router.get('/orders', authenticate, getOrders);
 
 //eNav utility routes - Support Chat
