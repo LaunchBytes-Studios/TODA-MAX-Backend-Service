@@ -12,11 +12,9 @@ import {
   finalizeRewardCode,
   verifyRewardCode,
 } from '../controllers/reward/rewardVerification.controller.ts';
-import {
-  getOrders,
-  updateOrderStatus,
-  updateOrderType,
-} from '../controllers/enav-orders/order.controller.ts';
+import { updateOrderStatus } from '../controllers/enav-orders/updateOrderStatus.controller.ts';
+import { updateOrderType } from '../controllers/enav-orders/updateOrderType.controller.ts';
+import { getOrders } from '../controllers/enav-orders/getOrders.controller.ts';
 import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessionsWithPatients.ts';
 import { getMessagesByChatId } from '../controllers/enav-chats/getMessages.ts';
 import { sendMessage } from '../controllers/enav-chats/sendMessage.ts';
