@@ -74,7 +74,10 @@ const extractTextFromFile = async (filePath: string): Promise<string> => {
       const { value } = await mammoth.extractRawText({ path: filePath });
       return value;
     } catch (err) {
-      console.error(`[healthContent] Failed to extract text from ${filePath}:`, err instanceof Error ? err.message : err);
+      console.error(
+        `[healthContent] Failed to extract text from ${filePath}:`,
+        err instanceof Error ? err.message : err,
+      );
       return '';
     }
   }
