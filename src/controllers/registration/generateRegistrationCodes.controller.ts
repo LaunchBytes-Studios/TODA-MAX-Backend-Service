@@ -32,6 +32,9 @@ export const generateRegistrationCode = async (req: Request, res: Response) => {
     if (error) {
       return res.status(500).json({ message: 'Error generating registration code.', error });
     }
+    if (!data || data.length === 0) {
+      return res.status(500).json({ message: 'No data returned after insert.' });
+    }
     return res.status(201).json(data[0]);
   } catch (error) {
     return res.status(500).json({ message: 'Server error.', error });

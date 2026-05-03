@@ -15,6 +15,7 @@ import {
   createChatSession,
 } from './sessionHelpers';
 
+
 const chatSchema = z.object({
   message: z.string().trim().min(2).max(1000),
   chat_id: z.string().uuid().optional(),
@@ -89,7 +90,7 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
   }
 
   // Insert patient message
-  const { data: patientMessage, error: patientMsgError } = await supabase
+  const { error: patientMsgError } = await supabase
     .from('ChatMessages')
     .insert({
       message_id: randomUUID(),
@@ -97,9 +98,7 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
       role: 'patient',
       sender_id: patientId,
       content: message.trim(),
-    })
-    .select()
-    .single();
+    });
   if (patientMsgError) throw new Error(patientMsgError.message);
 
   // Respond immediately to the client (do not wait for AI)
@@ -137,6 +136,7 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
         });
         aiResponse = await requestAiReply({
           message: message.trim(),
+          language: language,
           history,
           health_context: trimmedHealthContext || undefined,
           patient_context:
@@ -152,27 +152,20 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
             return;
           }
         }
-        // Optionally: log error
+
         return;
       }
 
       if (!aiResponse?.reply) {
-        if (chatbotActive) {
-          // Optionally: log error
-          return;
-        }
-      }
-
-      if (!chatbotActive) {
-        await updateChatSession(chatId, {
-          chatbot_active: false,
-          last_message_at: patientMessage.created_at,
-        });
         return;
       }
 
+      // Keep session state aligned with the latest AI decision so chatbot
+      // can recover from older false states when the current message is allowed.
       if (aiResponse.chatbot_active === false) {
         await updateChatSession(chatId, { chatbot_active: false });
+      } else {
+        await updateChatSession(chatId, { chatbot_active: true });
       }
 
       const { data: chatbotMessage, error: chatbotMsgError } = await supabase
@@ -187,16 +180,14 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
         .select()
         .single();
       if (chatbotMsgError) {
-        // Optionally: log error
         console.error('Failed to insert chatbot message:', chatbotMsgError);
         return;
       }
 
       await updateChatSession(chatId, { last_message_at: chatbotMessage.created_at });
       // The frontend will receive this new message via realtime updates
-    } catch {
-      // Optionally: log error
-      console.error('Error in AI reply logic');
+    } catch (err) {
+      console.error('Error in AI reply logic', err);
     }
   });
   return res;

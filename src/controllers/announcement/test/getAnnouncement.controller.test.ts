@@ -93,7 +93,7 @@ describe('getAnnouncement', () => {
       ],
       error: null,
     });
-    const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
+    const selectMock = vi.fn().mockReturnValueOnce({ eq: eqMock });
     const supabaseFromMock = supabase.from as ReturnType<typeof vi.fn>;
     supabaseFromMock.mockReturnValue({ select: selectMock });
 
