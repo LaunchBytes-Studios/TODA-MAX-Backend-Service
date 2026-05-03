@@ -49,7 +49,7 @@ describe('ai.service', () => {
             'content-type': 'application/json',
           },
           timeout: 30000,
-        })
+        }),
       );
     });
 
@@ -80,7 +80,7 @@ describe('ai.service', () => {
         expect.objectContaining({
           history: payload.history,
         }),
-        expect.anything()
+        expect.anything(),
       );
     });
 
@@ -108,7 +108,7 @@ describe('ai.service', () => {
         expect.objectContaining({
           health_context: 'Patient has Type 2 diabetes',
         }),
-        expect.anything()
+        expect.anything(),
       );
     });
 
@@ -144,7 +144,7 @@ describe('ai.service', () => {
         expect.objectContaining({
           patient_context: payload.patient_context,
         }),
-        expect.anything()
+        expect.anything(),
       );
     });
 
@@ -171,7 +171,7 @@ describe('ai.service', () => {
         expect.anything(),
         expect.objectContaining({
           timeout: 60000, // Default from code
-        })
+        }),
       );
     });
 
@@ -183,7 +183,7 @@ describe('ai.service', () => {
       };
 
       await expect(requestAiReply(payload)).rejects.toThrow(
-        'Missing AI_SERVICE_URL or AI_SERVICE_KEY'
+        'Missing AI_SERVICE_URL or AI_SERVICE_KEY',
       );
     });
 
@@ -195,7 +195,7 @@ describe('ai.service', () => {
       };
 
       await expect(requestAiReply(payload)).rejects.toThrow(
-        'Missing AI_SERVICE_URL or AI_SERVICE_KEY'
+        'Missing AI_SERVICE_URL or AI_SERVICE_KEY',
       );
     });
 
@@ -245,7 +245,7 @@ describe('ai.service', () => {
         expect.objectContaining({
           message: 'Simple message',
         }),
-        expect.anything()
+        expect.anything(),
       );
     });
 
@@ -273,7 +273,7 @@ describe('ai.service', () => {
             'x-service-key': 'test-api-key',
             'content-type': 'application/json',
           },
-        })
+        }),
       );
     });
 
@@ -296,7 +296,7 @@ describe('ai.service', () => {
       expect(axios.post).toHaveBeenCalledWith(
         'http://localhost:5000/chat',
         expect.anything(),
-        expect.anything()
+        expect.anything(),
       );
     });
 
@@ -321,7 +321,7 @@ describe('ai.service', () => {
       expect(axios.post).toHaveBeenCalledWith(
         'http://custom-ai-service:8080/chat',
         expect.anything(),
-        expect.anything()
+        expect.anything(),
       );
     });
 
@@ -348,7 +348,7 @@ describe('ai.service', () => {
         expect.anything(),
         expect.objectContaining({
           timeout: 120000,
-        })
+        }),
       );
     });
   });

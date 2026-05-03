@@ -187,7 +187,9 @@ describe('chatWithAi', () => {
 
     (
       supabase as unknown as {
-        from(table: string): SupabaseQueryMock | SupabaseInsertQueryMock | { insert: ReturnType<typeof vi.fn> };
+        from(
+          table: string,
+        ): SupabaseQueryMock | SupabaseInsertQueryMock | { insert: ReturnType<typeof vi.fn> };
       }
     ).from = vi.fn((table: string) => {
       if (table === 'ChatSession') return chatSessionQuery;

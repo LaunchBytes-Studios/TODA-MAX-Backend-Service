@@ -15,7 +15,6 @@ import {
   createChatSession,
 } from './sessionHelpers';
 
-
 const chatSchema = z.object({
   message: z.string().trim().min(2).max(1000),
   chat_id: z.string().uuid().optional(),
@@ -90,15 +89,13 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
   }
 
   // Insert patient message
-  const { error: patientMsgError } = await supabase
-    .from('ChatMessages')
-    .insert({
-      message_id: randomUUID(),
-      chat_id: chatId,
-      role: 'patient',
-      sender_id: patientId,
-      content: message.trim(),
-    });
+  const { error: patientMsgError } = await supabase.from('ChatMessages').insert({
+    message_id: randomUUID(),
+    chat_id: chatId,
+    role: 'patient',
+    sender_id: patientId,
+    content: message.trim(),
+  });
   if (patientMsgError) throw new Error(patientMsgError.message);
 
   // Respond immediately to the client (do not wait for AI)
