@@ -3,27 +3,30 @@ import type { Mock } from 'vitest';
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../../../types/patient-chat';
 
-// Mock the Supabase client before importing the controller
-const mockChannel = {
-  on: vi.fn().mockReturnThis(),
-  subscribe: vi.fn().mockReturnThis(),
-};
+// Set environment variables and mock Supabase before importing the controller
+vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co');
+vi.stubEnv('SUPABASE_ANON_KEY', 'test-anon-key');
 
-const mockAnonSupabase = {
-  channel: vi.fn(() => mockChannel),
-  removeChannel: vi.fn(),
-};
+const { mockChannel, mockAnonSupabase } = vi.hoisted(() => {
+  const mockChannel = {
+    on: vi.fn().mockReturnThis(),
+    subscribe: vi.fn().mockReturnThis(),
+  };
+
+  const mockAnonSupabase = {
+    channel: vi.fn(() => mockChannel),
+    removeChannel: vi.fn(),
+  };
+
+  return { mockChannel, mockAnonSupabase };
+});
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => mockAnonSupabase),
 }));
 
-// Set environment variables before importing the controller
-process.env.SUPABASE_URL = 'https://test.supabase.co';
-process.env.SUPABASE_ANON_KEY = 'test-anon-key';
-
-// Import after mocking and setting env vars
-const { streamChatMessages } = await import('../streamChatMessages');
+// Now import the controller
+import { streamChatMessages } from '../streamChatMessages';
 
 describe('streamChatMessages', () => {
   type CloseCallback = () => void;
