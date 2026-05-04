@@ -11,6 +11,6 @@
     "noEmit": false,
     "incremental": true
   },
-  "include": ["src", "src/prisma/prisma.config.ts", "src/controllers/patient-chat/test/.ts"],
+  "include": ["src", "src/prisma/prisma.config.ts"],
   "exclude": ["node_modules", "dist"]
 }
