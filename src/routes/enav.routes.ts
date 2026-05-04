@@ -11,15 +11,15 @@ import { alertMedication } from '../controllers/medication/alertMedication.contr
 import {
   finalizeRewardCode,
   verifyRewardCode,
-} from '../controllers/reward/rewardVerification.controller.ts';
-import { updateOrderStatus } from '../controllers/enav-orders/updateOrderStatus.controller.ts';
-import { updateOrderType } from '../controllers/enav-orders/updateOrderType.controller.ts';
-import { getOrders } from '../controllers/enav-orders/getOrders.controller.ts';
-import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessionsWithPatients.ts';
-import { getMessagesByChatId } from '../controllers/enav-chats/getMessages.ts';
-import { sendMessage } from '../controllers/enav-chats/sendMessage.ts';
-import { updateChatbotStatus } from '../controllers/enav-chats/updateChatbotStatus.ts';
-import { getChatSessionById } from '../controllers/enav-chats/getChatSessionById.ts';
+} from '../controllers/reward/rewardVerification.controller';
+import { updateOrderStatus } from '../controllers/enav-orders/updateOrderStatus.controller';
+import { updateOrderType } from '../controllers/enav-orders/updateOrderType.controller';
+import { getOrders } from '../controllers/enav-orders/getOrders.controller';
+import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessionsWithPatients';
+import { getMessagesByChatId } from '../controllers/enav-chats/getMessages';
+import { sendMessage } from '../controllers/enav-chats/sendMessage';
+import { updateChatbotStatus } from '../controllers/enav-chats/updateChatbotStatus';
+import { getChatSessionById } from '../controllers/enav-chats/getChatSessionById';
 
 const router = Router();
 
