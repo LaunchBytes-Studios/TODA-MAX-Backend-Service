@@ -6,6 +6,7 @@ import medicationRoutes from './routes/medication.routes';
 import rewardRoutes from './routes/reward.routes';
 import orderingRoutes from './routes/ordering.routes';
 import chatRoutes from './routes/chat.routes';
+import notificationsRoutes from './routes/notifications.routes';
 import cors from 'cors';
 
 const app = express();
@@ -41,6 +42,7 @@ app.use('/medications', medicationRoutes);
 app.use('/orders', orderingRoutes);
 app.use('/trackedmedications', trackedMedicationRoutes);
 app.use('/chat', chatRoutes);
+app.use('/notifications', notificationsRoutes);
 
 /* -------------------------
    404 handler
