@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Mock } from 'vitest';
+import { Response } from 'express';
 import { streamChatMessages } from '../streamChatMessages';
 import { supabase } from '../../../config/db';
+import { AuthenticatedRequest } from '../../../types/patient-chat';
 
 vi.mock('../../../config/db', () => ({
   supabase: {
@@ -13,8 +16,14 @@ vi.mock('../../../config/db', () => ({
 }));
 
 describe('streamChatMessages', () => {
-  let req: any;
-  let res: any;
+  type CloseCallback = () => void;
+  type StreamRequest = Pick<AuthenticatedRequest, 'params'> & {
+    on: (event: string, cb: CloseCallback) => void;
+  };
+  type StreamResponse = Pick<Response, 'writeHead' | 'write' | 'end'>;
+
+  let req: StreamRequest;
+  let res: StreamResponse;
 
   beforeEach(() => {
     req = { params: { chatId: 'chat-123' }, on: vi.fn() };
@@ -41,8 +50,8 @@ describe('streamChatMessages', () => {
   });
 
   it('should clean up on request close', async () => {
-    let closeCallback: Function = () => {};
-    req.on.mockImplementation((event: string, cb: Function) => {
+    let closeCallback: CloseCallback = () => {};
+    (req.on as Mock<[string, CloseCallback], void>).mockImplementation((event, cb) => {
       if (event === 'close') closeCallback = cb;
     });
 
