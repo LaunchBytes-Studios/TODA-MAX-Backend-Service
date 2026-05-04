@@ -16,7 +16,7 @@ describe('setLanguagePreference', () => {
   let res: Partial<Response>;
 
   beforeEach(() => {
-    req = { body: {}, user: { userId: 'u-123' } as any };
+    req = { body: {}, user: { userId: 'u-123', role: 'patient', contact: 'test@example.com' } };
     res = {
       status: vi.fn().mockReturnThis(),
       json: vi.fn(),

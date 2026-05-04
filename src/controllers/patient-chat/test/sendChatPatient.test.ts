@@ -27,7 +27,7 @@ describe('sendChatPatient', () => {
   let res: Partial<Response>;
 
   beforeEach(() => {
-    req = { body: {}, user: { userId: 'u-123' } as any };
+    req = { body: {}, user: { userId: 'u-123', role: 'patient', contact: 'test@example.com' } };
     res = {
       status: vi.fn().mockReturnThis(),
       json: vi.fn(),
@@ -44,15 +44,22 @@ describe('sendChatPatient', () => {
     const sessionResponse = { data: { chatbot_active: true, language: 'english' }, error: null };
     const messageInsertResponse = { data: { message_id: 'm-1' }, error: null };
 
+    type SupabaseResponse<T> = { data: T; error: unknown };
+    type SingleablePromise<T> = Promise<SupabaseResponse<T>> & {
+      single: Mock<[], Promise<SupabaseResponse<T>>>;
+    };
+
     const mockChain = {
       select: vi.fn().mockReturnThis(),
       insert: vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(),
       eq: vi.fn().mockImplementation(function () {
         // Return a promise for the .update().eq() call
-        const promise = Promise.resolve({ data: {}, error: null });
+        const promise = Promise.resolve({ data: {}, error: null }) as SingleablePromise<
+          Record<string, unknown>
+        >;
         // Add .single() to the promise for .select().eq().single() calls
-        (promise as any).single = vi
+        promise.single = vi
           .fn()
           .mockResolvedValueOnce(sessionResponse)
           .mockResolvedValueOnce(messageInsertResponse);

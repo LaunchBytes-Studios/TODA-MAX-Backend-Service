@@ -15,6 +15,17 @@ describe('getChatSession', () => {
   let req: Partial<AuthenticatedRequest>;
   let res: Partial<Response>;
 
+  type SupabaseChain<T> = {
+    select: () => SupabaseChain<T>;
+    insert: () => SupabaseChain<T>;
+    update: () => SupabaseChain<T>;
+    eq: () => SupabaseChain<T>;
+    order: () => SupabaseChain<T>;
+    limit: () => SupabaseChain<T>;
+    single: () => Promise<T>;
+    then: (onFulfilled: (value: T) => unknown) => Promise<unknown>;
+  };
+
   beforeEach(() => {
     req = { params: { patientId: 'p-123' } };
     res = {
@@ -29,8 +40,8 @@ describe('getChatSession', () => {
 
     // This helper creates an object that acts like a Promise (has .then)
     // and also has all the Supabase chaining methods.
-    const createMockChain = (finalData: any) => {
-      const obj: any = {
+    const createMockChain = <T>(finalData: T): SupabaseChain<T> => {
+      const obj = {
         select: vi.fn().mockReturnThis(),
         insert: vi.fn().mockReturnThis(),
         update: vi.fn().mockReturnThis(),
@@ -42,7 +53,7 @@ describe('getChatSession', () => {
         then: vi
           .fn()
           .mockImplementation((onFulfilled) => Promise.resolve(finalData).then(onFulfilled)),
-      };
+      } as SupabaseChain<T>;
       return obj;
     };
 
