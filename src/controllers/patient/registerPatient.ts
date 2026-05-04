@@ -33,7 +33,7 @@ export const registerPatient = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  if (!/^\d{12}$/.test(philhealth_num)) {
+  if (philhealth_num && !/^\d{12}$/.test(philhealth_num)) {
     return res.status(400).json({ error: 'Invalid Philhealth Number' });
   }
 

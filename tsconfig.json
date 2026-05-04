@@ -8,8 +8,8 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "noEmit": true,
-    "allowImportingTsExtensions": true
+    "noEmit": false,
+    "incremental": true
   },
   "include": ["src", "src/prisma/prisma.config.ts"],
   "exclude": ["node_modules", "dist"]

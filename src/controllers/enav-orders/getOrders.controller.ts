@@ -11,16 +11,22 @@ export const getOrders = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid pagination parameters' });
     }
 
-    let query = supabase.from('Order').select('*', { count: 'exact' });
+    const search = (req.query.search as string)?.toLowerCase();
+
+    let query = search
+      ? supabase.from('OrderView').select('*', { count: 'exact' })
+      : supabase.from('Order').select('*', { count: 'exact' });
 
     if (req.query.status) {
       query = query.eq('status', req.query.status);
     }
+
     if (req.query.delivery_type) {
       query = query.eq('delivery_type', req.query.delivery_type);
     }
-    if (req.query.search) {
-      query = query.ilike('order_id', `%${req.query.search}%`);
+
+    if (search) {
+      query = query.or(`order_number_text.ilike.${search}%,patient_name.ilike.%${search}%`);
     }
 
     const { data: allStatuses, error: statsError } = await supabase.from('Order').select('status');
@@ -47,11 +53,8 @@ export const getOrders = async (req: Request, res: Response) => {
       return res.status(400).json({ message: error.message });
     }
 
-    // console.log('limit:', limit, 'offset:', offset);
-    // console.log('returned rows:', orders?.length);
-
-    const orderIds = orders.map((o) => o.order_id);
-    const patientIds = orders.map((o) => o.patient_id);
+    const orderIds = orders?.map((o) => o.order_id) || [];
+    const patientIds = orders?.map((o) => o.patient_id) || [];
 
     const { data: patients, error: patientError } = await supabase
       .from('Patient')
@@ -66,14 +69,14 @@ export const getOrders = async (req: Request, res: Response) => {
       .from('OrderItem')
       .select(
         `
-    order_id,
-    quantity,
-    price,
-    Medication!inner (
-      name,
-      description
-    )
-  `,
+        order_id,
+        quantity,
+        price,
+        Medication!inner (
+          name,
+          description
+        )
+      `,
       )
       .in('order_id', orderIds);
 
@@ -81,7 +84,7 @@ export const getOrders = async (req: Request, res: Response) => {
       return res.status(400).json({ message: itemsError.message });
     }
 
-    const formattedOrders = orders.map((order: DBOrder) => {
+    const formattedOrders = (orders || []).map((order: DBOrder) => {
       const patient = patients?.find((p) => p.patient_id === order.patient_id);
 
       const typedItems = items ?? [];
@@ -101,6 +104,7 @@ export const getOrders = async (req: Request, res: Response) => {
         }, 0) || 0;
 
       let diagnosisString = 'No diagnosis provided';
+
       if (patient?.diagnosis && typeof patient.diagnosis === 'object') {
         const conditions = Object.entries(patient.diagnosis)
           .filter(([, value]) => value === true)
@@ -125,6 +129,7 @@ export const getOrders = async (req: Request, res: Response) => {
         delivery_address: order.delivery_address || 'No address provided',
         items: (itemsByOrder[order.order_id] || []).map((item) => {
           const med = Array.isArray(item.Medication) ? item.Medication[0] : item.Medication;
+
           return {
             name: med.name,
             description: med.description,
