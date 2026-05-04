@@ -37,7 +37,7 @@ describe('streamChatMessages', () => {
   });
 
   it('should set SSE headers and start heartbeat', async () => {
-    await streamChatMessages(req, res);
+    await streamChatMessages(req as AuthenticatedRequest, res as Response);
 
     expect(res.writeHead).toHaveBeenCalledWith(200, {
       'Content-Type': 'text/event-stream',
@@ -51,11 +51,11 @@ describe('streamChatMessages', () => {
 
   it('should clean up on request close', async () => {
     let closeCallback: CloseCallback = () => {};
-    (req.on as Mock<[string, CloseCallback], void>).mockImplementation((event, cb) => {
+    (req.on as Mock<(event: string, cb: CloseCallback) => void>).mockImplementation((event, cb) => {
       if (event === 'close') closeCallback = cb;
     });
 
-    await streamChatMessages(req, res);
+    await streamChatMessages(req as AuthenticatedRequest, res as Response);
     closeCallback();
 
     expect(supabase.removeChannel).toHaveBeenCalled();

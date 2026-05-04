@@ -46,7 +46,7 @@ describe('sendChatPatient', () => {
 
     type SupabaseResponse<T> = { data: T; error: unknown };
     type SingleablePromise<T> = Promise<SupabaseResponse<T>> & {
-      single: Mock<[], Promise<SupabaseResponse<T>>>;
+      single: Mock<() => Promise<SupabaseResponse<T>>>;
     };
 
     const mockChain = {
