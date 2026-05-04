@@ -38,7 +38,7 @@ describe('makeAnnouncement', () => {
     });
 
     // Simulate the chain: supabase.from().insert().select()
-    insertMock.mockReturnValue({
+    insertMock.mockReturnValueOnce({
       select: vi.fn().mockResolvedValue({ data: [{ id: 1, message: 'Hello world' }], error: null }),
     });
 
@@ -64,7 +64,7 @@ describe('makeAnnouncement', () => {
 
   it('should return 500 if supabase insert fails', async () => {
     (getFirstEnavId as ReturnType<typeof vi.fn>).mockResolvedValue('enav123');
-    const insertMock = vi.fn().mockReturnValue({
+    const insertMock = vi.fn().mockReturnValueOnce({
       select: vi.fn().mockResolvedValue({ data: null, error: { message: 'insert error' } }),
     });
     (supabase.from as ReturnType<typeof vi.fn>).mockReturnValue({ insert: insertMock });
@@ -77,7 +77,7 @@ describe('makeAnnouncement', () => {
 
   it('should return 500 on unexpected error', async () => {
     (getFirstEnavId as ReturnType<typeof vi.fn>).mockResolvedValue('enav123');
-    const insertMock = vi.fn().mockImplementation(() => {
+    const insertMock = vi.fn().mockImplementationOnce(() => {
       throw new Error('unexpected');
     });
     (supabase.from as ReturnType<typeof vi.fn>).mockReturnValue({ insert: insertMock });

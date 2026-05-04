@@ -70,8 +70,16 @@ const scoreChunk = (queryTokens: Set<string>, chunkTokens: Set<string>) => {
 const extractTextFromFile = async (filePath: string): Promise<string> => {
   const extension = path.extname(filePath).toLowerCase();
   if (extension === '.docx') {
-    const { value } = await mammoth.extractRawText({ path: filePath });
-    return value;
+    try {
+      const { value } = await mammoth.extractRawText({ path: filePath });
+      return value;
+    } catch (err) {
+      console.error(
+        `[healthContent] Failed to extract text from ${filePath}:`,
+        err instanceof Error ? err.message : err,
+      );
+      return '';
+    }
   }
 
   return '';
@@ -128,6 +136,15 @@ const getChunks = async (): Promise<Chunk[]> => {
   }
 
   return loadingPromise;
+};
+
+/**
+ * Reload and clear cached health content.
+ * Useful for testing or when health content files are updated.
+ */
+export const reloadHealthContent = async (): Promise<void> => {
+  cachedChunks = null;
+  loadingPromise = null;
 };
 
 export const getHealthContext = async (query: string, limit = DEFAULT_LIMIT) => {
