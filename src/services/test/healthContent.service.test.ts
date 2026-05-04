@@ -24,13 +24,13 @@ describe('healthContent.service', () => {
 
   describe('getHealthContext', () => {
     it('should return empty string for empty query', async () => {
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('');
       expect(result).toBe('');
     });
 
     it('should return empty string for whitespace-only query', async () => {
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('   ');
       expect(result).toBe('');
     });
@@ -39,7 +39,7 @@ describe('healthContent.service', () => {
       const fs = await import('node:fs/promises');
       vi.mocked(fs.readdir).mockResolvedValueOnce(asReaddirResult([]));
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('diabetes treatment');
       expect(result).toBe('');
     });
@@ -52,7 +52,7 @@ describe('healthContent.service', () => {
       vi.mocked(fs.readdir).mockResolvedValueOnce(asReaddirResult([mockDirEntry]));
       vi.mocked(mammoth.extractRawText).mockResolvedValueOnce({ value: '', messages: [] });
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('some query');
       expect(result).toBe('');
     });
@@ -71,7 +71,7 @@ describe('healthContent.service', () => {
         messages: [],
       });
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('diabetes treatment');
       expect(result).toBeTruthy();
       expect(result).toContain('health-guide.docx');
@@ -93,7 +93,7 @@ describe('healthContent.service', () => {
         messages: [],
       });
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('diabetes chronic');
       expect(result).not.toContain('   ');
     });
@@ -111,7 +111,7 @@ describe('healthContent.service', () => {
         messages: [],
       });
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('diabetes insulin');
       expect(result).toBe('');
     });
@@ -131,7 +131,7 @@ describe('healthContent.service', () => {
         messages: [],
       });
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('diabetes insulin');
       expect(result).toBeTruthy();
       expect(vi.mocked(mammoth.extractRawText)).toHaveBeenCalledTimes(1);
@@ -149,7 +149,7 @@ describe('healthContent.service', () => {
         messages: [],
       });
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('diabetes');
       expect(result).toContain('Source: diabetes-treatment.docx');
     });
@@ -166,7 +166,7 @@ describe('healthContent.service', () => {
         messages: [],
       });
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('pharmaceutical');
       expect(result).toBeTruthy();
     });
@@ -188,7 +188,7 @@ describe('healthContent.service', () => {
         messages: [],
       });
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('diabetes', 1);
       expect(result).toBeTruthy();
     });
@@ -202,7 +202,7 @@ describe('healthContent.service', () => {
       vi.mocked(fs.readdir).mockResolvedValueOnce(asReaddirResult([mockDirEntry]));
       vi.mocked(mammoth.extractRawText).mockRejectedValueOnce(new Error('Failed to read docx'));
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('diabetes');
       expect(result).toBe('');
     });
@@ -220,7 +220,7 @@ describe('healthContent.service', () => {
         messages: [],
       });
 
-      const { getHealthContext } = await import('../../services/healthContent.service.ts');
+      const { getHealthContext } = await import('../healthContent.service.js');
       const result = await getHealthContext('pharmacology treatment');
       expect(result).toBe('');
     });
