@@ -1,19 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { Response } from 'express';
-import { streamChatMessages } from '../streamChatMessages';
-import { supabase } from '../../../config/db';
 import { AuthenticatedRequest } from '../../../types/patient-chat';
 
-vi.mock('../../../config/db', () => ({
-  supabase: {
-    channel: vi.fn(() => ({
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-    })),
-    removeChannel: vi.fn(),
-  },
+// Mock the Supabase client before importing the controller
+const mockChannel = {
+  on: vi.fn().mockReturnThis(),
+  subscribe: vi.fn().mockReturnThis(),
+};
+
+const mockAnonSupabase = {
+  channel: vi.fn(() => mockChannel),
+  removeChannel: vi.fn(),
+};
+
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => mockAnonSupabase),
 }));
+
+// Set environment variables before importing the controller
+process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_ANON_KEY = 'test-anon-key';
+
+// Import after mocking and setting env vars
+const { streamChatMessages } = await import('../streamChatMessages');
 
 describe('streamChatMessages', () => {
   type CloseCallback = () => void;
@@ -43,7 +53,12 @@ describe('streamChatMessages', () => {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
     });
+
+    expect(mockAnonSupabase.channel).toHaveBeenCalledWith('realtime_chat_chat-123');
+    expect(mockChannel.on).toHaveBeenCalled();
+    expect(mockChannel.subscribe).toHaveBeenCalled();
 
     vi.advanceTimersByTime(15000);
     expect(res.write).toHaveBeenCalledWith(': heartbeat\n\n');
@@ -58,7 +73,7 @@ describe('streamChatMessages', () => {
     await streamChatMessages(req as AuthenticatedRequest, res as Response);
     closeCallback();
 
-    expect(supabase.removeChannel).toHaveBeenCalled();
+    expect(mockAnonSupabase.removeChannel).toHaveBeenCalled();
     expect(res.end).toHaveBeenCalled();
   });
 });
