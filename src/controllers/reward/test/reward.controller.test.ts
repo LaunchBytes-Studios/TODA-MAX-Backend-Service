@@ -96,11 +96,15 @@ describe('reward controller', () => {
   });
 
   it('returns all rewards', async () => {
-    req.query = { search: 'voucher', category: 'Health', lowStockOnly: 'true', page: '1', limit: '10' };
+    req.query = {
+      search: 'voucher',
+      category: 'Health',
+      lowStockOnly: 'true',
+      page: '1',
+      limit: '10',
+    };
     mockedGetAllRewardsService.mockResolvedValue({
-      rewards: [
-        { reward_id: 1, name: 'Free Checkup', points_required: 100 } as Reward,
-      ],
+      rewards: [{ reward_id: 1, name: 'Free Checkup', points_required: 100 } as Reward],
       total: 1,
       page: 1,
       limit: 10,

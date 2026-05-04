@@ -64,7 +64,8 @@ describe('patient reward controller', () => {
           rewardName: 'Free Checkup',
           rewardDescription: 'Checkup voucher',
           rewardCategory: 'Health',
-          instructions: 'Present this claim code to an eNavigator in person to receive your reward.',
+          instructions:
+            'Present this claim code to an eNavigator in person to receive your reward.',
         },
         remainingPoints: 50,
       },
@@ -105,7 +106,8 @@ describe('patient reward controller', () => {
           rewardName: 'Free Checkup',
           rewardDescription: 'Checkup voucher',
           rewardCategory: 'Health',
-          instructions: 'Present this claim code to an eNavigator in person to receive your reward.',
+          instructions:
+            'Present this claim code to an eNavigator in person to receive your reward.',
         },
       },
     });
@@ -154,7 +156,8 @@ describe('patient reward controller', () => {
           rewardName: 'Free Checkup',
           rewardDescription: 'Checkup voucher',
           rewardCategory: 'Health',
-          instructions: 'Present this claim code to an eNavigator in person to receive your reward.',
+          instructions:
+            'Present this claim code to an eNavigator in person to receive your reward.',
         },
         remainingPoints: 150,
       },

@@ -22,7 +22,9 @@ type VerificationRequest = Request & {
   };
 };
 
-const buildPayload = (overrides: Partial<RewardVerificationPayload> = {}): RewardVerificationPayload => ({
+const buildPayload = (
+  overrides: Partial<RewardVerificationPayload> = {},
+): RewardVerificationPayload => ({
   transId: 'tx-1',
   code: 'RW-AAAA1111',
   status: 'claimed',
