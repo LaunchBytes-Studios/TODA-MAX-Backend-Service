@@ -3,6 +3,8 @@ import {
   finalizeRewardCodeService,
   verifyRewardCodeService,
 } from '../../services/rewardVerification.service';
+import { getUserPushTokens } from '../../utils/getUserPushTokens';
+import { sendPushNotifications } from '../../utils/sendPushNotifications';
 
 export const verifyRewardCode = async (req: Request, res: Response) => {
   try {
@@ -74,6 +76,22 @@ export const finalizeRewardCode = async (req: Request, res: Response) => {
         message: 'Reward code cannot be finalized in its current state',
         data: result.data,
       });
+    }
+
+    const patientId = result.data?.patientId;
+
+    if (patientId) {
+      const tokens = await getUserPushTokens(patientId);
+
+      if (tokens.length > 0) {
+        const rewardName = result.data?.rewardName ?? 'your reward';
+
+        sendPushNotifications(
+          tokens,
+          '🎁 Reward Claimed Successfully',
+          `Your reward "${rewardName}" has been claimed and is now being processed.`,
+        ).catch(console.error);
+      }
     }
 
     return res.status(200).json({
