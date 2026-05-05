@@ -1,8 +1,8 @@
-export async function sendPushNotifications(tokens: string[], message: string) {
+export async function sendPushNotifications(tokens: string[], title: string, message: string) {
   const messages = tokens.map((token) => ({
     to: token,
     sound: 'default',
-    title: '📢 New Announcement',
+    title: title,
     body: message,
   }));
 

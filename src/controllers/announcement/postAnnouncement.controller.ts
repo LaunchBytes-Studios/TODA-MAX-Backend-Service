@@ -42,7 +42,8 @@ export const makeAnnouncement = async (req: Request, res: Response) => {
 
     // 3. Send push notifications
     if (tokens.length > 0) {
-      await sendPushNotifications(tokens, message);
+      const title = '📢 New Announcement';
+      sendPushNotifications(tokens, title, message).catch(console.error);
     }
 
     return res.status(201).json({
