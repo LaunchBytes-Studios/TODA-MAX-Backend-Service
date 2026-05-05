@@ -12,7 +12,9 @@ import {
   finalizeRewardCode,
   verifyRewardCode,
 } from '../controllers/reward/rewardVerification.controller';
-import { getOrders, updateOrderStatus } from '../controllers/enav-orders/order.controller';
+import { updateOrderStatus } from '../controllers/enav-orders/updateOrderStatus.controller';
+import { updateOrderType } from '../controllers/enav-orders/updateOrderType.controller';
+import { getOrders } from '../controllers/enav-orders/getOrders.controller';
 import { getChatSessionsWithPatients } from '../controllers/enav-chats/getSessionsWithPatients';
 import { getMessagesByChatId } from '../controllers/enav-chats/getMessages';
 import { sendMessage } from '../controllers/enav-chats/sendMessage';
@@ -42,6 +44,7 @@ router.get('/rewardCodes/verify', authenticate, verifyRewardCode);
 router.post('/rewardCodes/finalize', authenticate, finalizeRewardCode);
 //Orders
 router.patch('/orders/:id/status', authenticate, updateOrderStatus);
+router.patch('/orders/:id/type', authenticate, updateOrderType);
 router.get('/orders', authenticate, getOrders);
 
 //eNav utility routes - Support Chat
