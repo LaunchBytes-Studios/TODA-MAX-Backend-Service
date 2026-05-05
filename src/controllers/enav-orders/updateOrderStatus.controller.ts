@@ -1,5 +1,17 @@
 import { supabase } from '../../config/db';
 import { Request, Response } from 'express';
+import { getUserPushTokens } from '../../utils/getUserPushTokens';
+import { sendPushNotifications } from '../../utils/sendPushNotifications';
+
+const statusMessages: {
+  [key: string]: string;
+} = {
+  pending: 'Your order is being reviewed.',
+  preparing: 'Your order is being prepared.',
+  ready: 'Your order is ready for pickup!',
+  completed: 'Your order has been completed.',
+  rejected: 'Your order was rejected.',
+};
 
 export const updateOrderStatus = async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -12,7 +24,7 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     // NOTE: Check if 'OrderItem' needs to be 'order_item' based on your Supabase relationship name
     const { data: currentOrder, error: fetchError } = await supabase
       .from('Order')
-      .select(`*, OrderItem ( medication_id, quantity )`)
+      .select(`*, patient_id, OrderItem ( medication_id, quantity )`)
       .eq('order_id', id)
       .single();
 
@@ -77,6 +89,17 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
       .eq('order_id', id);
 
     if (finalError) throw finalError;
+
+    const patientId = currentOrder.patient_id;
+    const tokens = await getUserPushTokens(patientId);
+    const message = statusMessages[updateData.status];
+
+    if (tokens.length > 0) {
+      sendPushNotifications(tokens, 'Order Update', message ?? `Order status: ${status}`, {
+        type: 'order',
+        id: id as string,
+      }).catch(console.error);
+    }
 
     return res.status(200).json({ success: true, message: 'Updated successfully' });
   } catch (err) {
