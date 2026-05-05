@@ -5,14 +5,14 @@ export const attachPushTokenToUser = async (req: Request, res: Response) => {
   const user = req.user;
   const { token } = req.body;
 
-  if (!token || !user?.id) {
+  if (!token || !user?.userId) {
     return res.status(400).json({ error: 'Missing data' });
   }
 
   const { error } = await supabase.from('UserPushTokens').upsert(
     {
       token,
-      user_id: user.id,
+      user_id: user.userId,
       updated_at: new Date().toISOString(),
     },
     {
