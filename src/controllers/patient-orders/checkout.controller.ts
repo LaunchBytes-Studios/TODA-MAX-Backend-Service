@@ -140,6 +140,7 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
       tokens,
       'Order Placed',
       `Your order #${result.order.order_id} has been placed successfully.`,
+      { type: 'order', id: result.order.order_id },
     ).catch(console.error);
   }
 

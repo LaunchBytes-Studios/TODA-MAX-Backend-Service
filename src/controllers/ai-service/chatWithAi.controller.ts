@@ -189,7 +189,10 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
         const preview =
           aiResponse.reply.length > 80 ? aiResponse.reply.slice(0, 80) + '...' : aiResponse.reply;
 
-        sendPushNotifications(tokens, 'New message from AI Chatbot', preview).catch(console.error);
+        sendPushNotifications(tokens, 'New message from AI Chatbot', preview, {
+          type: 'chat',
+          id: chatId,
+        }).catch(console.error);
       }
 
       await updateChatSession(chatId, { last_message_at: chatbotMessage.created_at });

@@ -49,6 +49,7 @@ export const confirmOrder = asyncHandler('Failed to confirm order', async (req, 
       tokens,
       'Order Completed',
       'Your order has been marked as completed. Thank you!',
+      { type: 'order', id: orderId },
     ).catch(console.error);
   }
 

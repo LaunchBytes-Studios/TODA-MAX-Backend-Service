@@ -95,9 +95,10 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     const message = statusMessages[updateData.status];
 
     if (tokens.length > 0) {
-      sendPushNotifications(tokens, 'Order Update', message ?? `Order status: ${status}`).catch(
-        console.error,
-      );
+      sendPushNotifications(tokens, 'Order Update', message ?? `Order status: ${status}`, {
+        type: 'order',
+        id: id as string,
+      }).catch(console.error);
     }
 
     return res.status(200).json({ success: true, message: 'Updated successfully' });

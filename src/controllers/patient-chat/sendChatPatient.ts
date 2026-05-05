@@ -77,6 +77,10 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
         tokens,
         'New message from eNavigator',
         content.length > 80 ? content.slice(0, 80) + '...' : content,
+        {
+          type: 'chat',
+          id: chatId,
+        },
       ).catch(console.error);
     }
 
