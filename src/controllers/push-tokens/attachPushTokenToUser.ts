@@ -7,7 +7,7 @@ export const attachPushTokenToUser = async (req: Request, res: Response) => {
 
   console.log('--- ATTACH TOKEN DEBUG ---');
   console.log('Authorization header:', req.headers.authorization);
-  console.log('User:', req.user);
+  console.log('User:', req.user?.userId);
   if (!token || !user?.userId) {
     return res.status(400).json({ error: 'Missing data' });
   }
