@@ -90,6 +90,7 @@ export const finalizeRewardCode = async (req: Request, res: Response) => {
           tokens,
           '🎁 Reward Claimed Successfully',
           `Your reward "${rewardName}" has been claimed and is now being processed.`,
+          { type: 'reward', id: result.data?.rewardId },
         ).catch(console.error);
       }
     }
