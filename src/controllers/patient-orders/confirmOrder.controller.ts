@@ -1,6 +1,8 @@
 import { supabase } from '../../config/db';
 import { ORDER_STATUS } from '../../constants/orderStatus';
+import { getUserPushTokens } from '../../utils/getUserPushTokens';
 import { asyncHandler, requirePatientId, parseId } from '../../utils/helpers';
+import { sendPushNotifications } from '../../utils/sendPushNotifications';
 
 // PATCH /:orderId/confirm — patient confirms they received the order.
 // Only allowed when status is 'ready'; transitions to 'completed'.
@@ -39,6 +41,17 @@ export const confirmOrder = asyncHandler('Failed to confirm order', async (req, 
     .single();
 
   if (updateErr) throw new Error(`Failed to update order: ${updateErr.message}`);
+
+  const tokens = await getUserPushTokens(patientId);
+
+  if (tokens.length > 0) {
+    sendPushNotifications(
+      tokens,
+      'Order Completed',
+      'Your order has been marked as completed. Thank you!',
+      { type: 'order', id: orderId },
+    ).catch(console.error);
+  }
 
   return res.json({ success: true, message: 'Order confirmed successfully', data: updated });
 });

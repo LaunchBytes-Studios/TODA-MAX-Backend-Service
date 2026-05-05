@@ -2,6 +2,8 @@ import { supabase } from '../../config/db';
 import { createOrderService } from '../../services/ordering.service';
 import { awardPatientPointsForEvent } from '../../services/patientPoints.service';
 import { asyncHandler, requirePatientId, sumItemQuantities } from '../../utils/helpers';
+import { getUserPushTokens } from '../../utils/getUserPushTokens';
+import { sendPushNotifications } from '../../utils/sendPushNotifications';
 
 export const checkout = asyncHandler('Failed to create order', async (req, res) => {
   const patientId = requirePatientId(req);
@@ -129,6 +131,17 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
     });
   } catch (pointsError) {
     console.error('Failed to award order placement points:', pointsError);
+  }
+
+  const tokens = await getUserPushTokens(patientId);
+
+  if (tokens.length > 0) {
+    sendPushNotifications(
+      tokens,
+      'Order Placed',
+      `Your order #${result.order.order_id} has been placed successfully.`,
+      { type: 'order', id: result.order.order_id },
+    ).catch(console.error);
   }
 
   return res.status(201).json({

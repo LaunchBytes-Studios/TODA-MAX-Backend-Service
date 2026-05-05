@@ -29,7 +29,8 @@ export const makeAnnouncement = async (req: Request, res: Response) => {
           enav_id,
         },
       ])
-      .select();
+      .select()
+      .single();
 
     if (error) {
       return res.status(500).json({ error: error.message });
@@ -42,7 +43,11 @@ export const makeAnnouncement = async (req: Request, res: Response) => {
 
     // 3. Send push notifications
     if (tokens.length > 0) {
-      await sendPushNotifications(tokens, message);
+      const title = '📢 New Announcement';
+      sendPushNotifications(tokens, title, message, {
+        type: 'announcement',
+        id: data.announce_id,
+      }).catch(console.error);
     }
 
     return res.status(201).json({
