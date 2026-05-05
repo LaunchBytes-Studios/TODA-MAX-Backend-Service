@@ -3,6 +3,8 @@ import { supabase } from '../../config/db';
 import { randomUUID } from 'crypto';
 import { AuthenticatedRequest } from '../../types/patient-chat';
 import { requestAiReply } from '../../services/ai.service';
+import { getUserPushTokens } from '../../utils/getUserPushTokens';
+import { sendPushNotifications } from '../../utils/sendPushNotifications';
 
 const chatbotId = process.env.CHATBOT_ID;
 if (!chatbotId) {
@@ -30,7 +32,7 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
 
     const { data: chatSession, error: chatSessionError } = await supabase
       .from('ChatSession')
-      .select('language, chatbot_active')
+      .select('patient_id, language, chatbot_active')
       .eq('chat_id', chatId)
       .single();
 
@@ -67,6 +69,16 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
       .eq('chat_id', chatId);
 
     if (updateError) throw updateError;
+
+    const tokens = await getUserPushTokens(chatSession.patient_id);
+
+    if (tokens.length > 0) {
+      sendPushNotifications(
+        tokens,
+        'New message from eNavigator',
+        content.length > 80 ? content.slice(0, 80) + '...' : content,
+      ).catch(console.error);
+    }
 
     // If chatbot is active, trigger AI reply in background
     if (chatbotActive) {

@@ -14,6 +14,8 @@ import {
   assertChatOwnership,
   createChatSession,
 } from './sessionHelpers';
+import { getUserPushTokens } from '../../utils/getUserPushTokens';
+import { sendPushNotifications } from '../../utils/sendPushNotifications';
 
 const chatSchema = z.object({
   message: z.string().trim().min(2).max(1000),
@@ -181,7 +183,17 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
         return;
       }
 
+      const tokens = await getUserPushTokens(patientId);
+
+      if (tokens.length > 0) {
+        const preview =
+          aiResponse.reply.length > 80 ? aiResponse.reply.slice(0, 80) + '...' : aiResponse.reply;
+
+        sendPushNotifications(tokens, 'New message from AI Chatbot', preview).catch(console.error);
+      }
+
       await updateChatSession(chatId, { last_message_at: chatbotMessage.created_at });
+
       // The frontend will receive this new message via realtime updates
     } catch (err) {
       console.error('Error in AI reply logic', err);
