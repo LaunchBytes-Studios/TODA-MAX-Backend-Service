@@ -98,6 +98,7 @@ export interface ExistingDoseRow {
 
   medication: {
     name: string;
+    dosage: string;
   };
 }
 
@@ -123,6 +124,7 @@ export interface DailyMedicationDoseDTO {
   dose_id: UUID | string; // string for dummy IDs
   medication_id: UUID;
   name: string;
+  dosage: string;
   time: string;
   taken_at: string | null;
   status: DoseStatus;
