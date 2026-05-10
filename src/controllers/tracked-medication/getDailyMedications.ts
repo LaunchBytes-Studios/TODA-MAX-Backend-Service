@@ -73,7 +73,7 @@ export const getDailyMedications = async (req: Request, res: Response) => {
         taken_at,
         scheduled_time,
         tracked_medication_id,
-        medication:TrackedMedication(name)
+        medication:TrackedMedication(name, dosage)
       `,
       )
       .eq('medication_tracking_day_id', trackingDayId)
@@ -140,7 +140,7 @@ export const getDailyMedications = async (req: Request, res: Response) => {
         taken_at,
         scheduled_time,
         tracked_medication_id,
-        medication:TrackedMedication(name)
+        medication:TrackedMedication(name, dosage)
       `,
       )
       .eq('medication_tracking_day_id', trackingDayId)
@@ -191,6 +191,7 @@ export const getDailyMedications = async (req: Request, res: Response) => {
       dose_id: dose.id,
       medication_id: dose.tracked_medication_id,
       name: dose.medication.name,
+      dosage: dose.medication.dosage,
       time: dose.scheduled_time,
       taken_at: dose.taken_at ? new Date(dose.taken_at).toISOString() : null,
       status: dose.status,
