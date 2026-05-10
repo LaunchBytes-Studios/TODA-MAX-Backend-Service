@@ -4,8 +4,6 @@ import { getUserPushTokens } from '../../utils/getUserPushTokens';
 import { asyncHandler, requirePatientId, parseId } from '../../utils/helpers';
 import { sendPushNotifications } from '../../utils/sendPushNotifications';
 
-// PATCH /:orderId/confirm — patient confirms they received the order.
-// Only allowed when status is 'ready'; transitions to 'completed'.
 export const confirmOrder = asyncHandler('Failed to confirm order', async (req, res) => {
   const patientId = requirePatientId(req);
   const orderId = parseId(req.params.orderId);
@@ -65,6 +63,46 @@ export const confirmOrder = asyncHandler('Failed to confirm order', async (req, 
       'Your order has been marked as completed. Thank you!',
       { type: 'order', id: orderId },
     ).catch(console.error);
+  }
+
+  const { data: orderItems, error: itemsErr } = await supabase
+    .from('OrderItem')
+    .select('medication_id, quantity')
+    .eq('order_id', orderId);
+
+  if (itemsErr) {
+    throw new Error(`Failed to fetch order items: ${itemsErr.message}`);
+  }
+
+  if (orderItems?.length) {
+    for (const item of orderItems) {
+      const { medication_id, quantity } = item;
+
+      const { data: tracked, error: trackErr } = await supabase
+        .from('TrackedMedication')
+        .select('id, quantity')
+        .eq('patient_id', patientId)
+        .eq('medication_id', medication_id)
+        .single();
+
+      if (trackErr || !tracked) {
+        continue;
+      }
+
+      const newQuantity = (tracked.quantity ?? 0) + quantity;
+
+      const { error: updateErr } = await supabase
+        .from('TrackedMedication')
+        .update({
+          quantity: newQuantity,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', tracked.id);
+
+      if (updateErr) {
+        console.error(`Failed to update tracked medication ${medication_id}:`, updateErr.message);
+      }
+    }
   }
 
   return res.json({ success: true, message: 'Order confirmed successfully', data: updated });
