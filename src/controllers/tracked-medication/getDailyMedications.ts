@@ -25,7 +25,7 @@ export const getDailyMedications = async (req: Request, res: Response) => {
     const isPast = requestDate < todayUTC;
 
     /**
-     * STEP 1 — fetch existing tracking day
+     * STEP 1 — fetch or create tracking day
      */
     const { data: existingTrackingDay, error: trackingDayError } = await supabase
       .from('MedicationTrackingDay')
@@ -36,19 +36,22 @@ export const getDailyMedications = async (req: Request, res: Response) => {
 
     if (trackingDayError && trackingDayError.code !== 'PGRST116') throw trackingDayError;
 
-    /**
-     * STEP 2 — past date without tracking day → no records
-     */
-    if (isPast && !existingTrackingDay) return res.json({ medications: [] });
+    if (isPast && !existingTrackingDay) {
+      return res.json({ medications: [] });
+    }
 
-    /**
-     * STEP 3 — create tracking day if missing
-     */
     let trackingDay = existingTrackingDay;
-    if (!existingTrackingDay) {
+
+    if (!trackingDay) {
       const { data, error } = await supabase
         .from('MedicationTrackingDay')
-        .insert([{ patient_id: patientId, date, status: 'none' }])
+        .insert([
+          {
+            patient_id: patientId,
+            date,
+            status: 'none',
+          },
+        ])
         .select('*')
         .single();
 
@@ -59,7 +62,7 @@ export const getDailyMedications = async (req: Request, res: Response) => {
     const trackingDayId = trackingDay.id;
 
     /**
-     * STEP 4 — fetch existing doses using scheduled_time
+     * STEP 2 — fetch existing doses
      */
     const { data: existingDoses, error: doseError } = await supabase
       .from('TrackedMedicationDayDose')
@@ -78,53 +81,12 @@ export const getDailyMedications = async (req: Request, res: Response) => {
 
     if (doseError) throw doseError;
 
-    if (existingDoses && existingDoses.length > 0) {
-      // Update missed doses for today/past only
-      let currentDoseIndex = -1;
-
-      const sortedDoses = [...existingDoses].sort((a, b) =>
-        a.scheduled_time.localeCompare(b.scheduled_time),
-      );
-
-      sortedDoses.forEach((dose, index) => {
-        const [hour, minute] = dose.scheduled_time.split(':').map(Number);
-        const doseTime = new Date(date);
-        doseTime.setUTCHours(hour, minute, 0, 0);
-        if (doseTime <= now) currentDoseIndex = index;
-      });
-
-      const missedDoseIds: string[] = [];
-      sortedDoses.forEach((dose, index) => {
-        if (index < currentDoseIndex && dose.status === 'pending') missedDoseIds.push(dose.id);
-      });
-
-      if (missedDoseIds.length > 0) {
-        const { error: updateError } = await supabase
-          .from('TrackedMedicationDayDose')
-          .update({ status: 'missed' })
-          .in('id', missedDoseIds);
-
-        if (updateError) throw updateError;
-
-        sortedDoses.forEach((dose) => {
-          if (missedDoseIds.includes(dose.id)) dose.status = 'missed';
-        });
-      }
-
-      const formatted: DailyMedicationDoseDTO[] = sortedDoses.map((dose) => ({
-        dose_id: dose.id,
-        medication_id: dose.tracked_medication_id,
-        name: dose.medication.name,
-        time: dose.scheduled_time,
-        taken_at: dose.taken_at ? new Date(dose.taken_at).toISOString() : null,
-        status: dose.status,
-      }));
-
-      return res.json({ medications: formatted });
-    }
+    const existingKeySet = new Set(
+      existingDoses?.map((d) => `${d.tracked_medication_id}-${d.scheduled_time}`) ?? [],
+    );
 
     /**
-     * STEP 5 — fetch active medications + schedules
+     * STEP 3 — fetch active medications
      */
     const { data: meds, error: medsError } = await supabase
       .from('TrackedMedication')
@@ -136,28 +98,41 @@ export const getDailyMedications = async (req: Request, res: Response) => {
     if (medsError) throw medsError;
 
     /**
-     * STEP 6 — generate doses using scheduled_time snapshot
+     * STEP 4 — generate ONLY missing doses
      */
     const doseRows: CreateDoseRow[] = [];
+
     meds?.forEach((med) => {
       med.schedules.forEach((schedule) => {
         if (!schedule.id) return;
+
+        const key = `${med.id}-${schedule.time}`;
+
+        if (existingKeySet.has(key)) return;
 
         doseRows.push({
           medication_tracking_day_id: trackingDayId,
           tracked_medication_id: med.id,
           tracked_medication_schedule_id: schedule.id,
-          scheduled_time: schedule.time, // ⬅ use schedule snapshot
+          scheduled_time: schedule.time,
           status: 'pending',
         });
       });
     });
 
-    if (doseRows.length === 0) return res.json({ medications: [] });
+    if (doseRows.length > 0) {
+      const { error: insertError } = await supabase
+        .from('TrackedMedicationDayDose')
+        .insert(doseRows);
 
-    const { data: insertedDoses, error: insertError } = await supabase
+      if (insertError) throw insertError;
+    }
+
+    /**
+     * STEP 5 — refetch updated doses (important)
+     */
+    const { data: updatedDoses, error: refetchError } = await supabase
       .from('TrackedMedicationDayDose')
-      .insert(doseRows)
       .select(
         `
         id,
@@ -168,19 +143,58 @@ export const getDailyMedications = async (req: Request, res: Response) => {
         medication:TrackedMedication(name)
       `,
       )
+      .eq('medication_tracking_day_id', trackingDayId)
       .returns<ExistingDoseRow[]>();
 
-    if (insertError) throw insertError;
+    if (refetchError) throw refetchError;
 
-    const formatted: DailyMedicationDoseDTO[] =
-      insertedDoses?.map((dose) => ({
-        dose_id: dose.id,
-        medication_id: dose.tracked_medication_id,
-        name: dose.medication.name,
-        time: dose.scheduled_time,
-        taken_at: dose.taken_at ? new Date(dose.taken_at).toISOString() : null,
-        status: dose.status,
-      })) ?? [];
+    /**
+     * STEP 6 — update missed doses (your existing logic preserved)
+     */
+    const sortedDoses = [...(updatedDoses ?? [])].sort((a, b) =>
+      a.scheduled_time.localeCompare(b.scheduled_time),
+    );
+
+    let currentDoseIndex = -1;
+
+    sortedDoses.forEach((dose, index) => {
+      const [hour, minute] = dose.scheduled_time.split(':').map(Number);
+      const doseTime = new Date(date);
+      doseTime.setUTCHours(hour, minute, 0, 0);
+
+      if (doseTime <= now) currentDoseIndex = index;
+    });
+
+    const missedDoseIds: string[] = [];
+
+    sortedDoses.forEach((dose, index) => {
+      if (index < currentDoseIndex && dose.status === 'pending') {
+        missedDoseIds.push(dose.id);
+      }
+    });
+
+    if (missedDoseIds.length > 0) {
+      await supabase
+        .from('TrackedMedicationDayDose')
+        .update({ status: 'missed' })
+        .in('id', missedDoseIds);
+
+      sortedDoses.forEach((d) => {
+        if (missedDoseIds.includes(d.id)) d.status = 'missed';
+      });
+    }
+
+    /**
+     * STEP 7 — response
+     */
+    const formatted: DailyMedicationDoseDTO[] = sortedDoses.map((dose) => ({
+      dose_id: dose.id,
+      medication_id: dose.tracked_medication_id,
+      name: dose.medication.name,
+      time: dose.scheduled_time,
+      taken_at: dose.taken_at ? new Date(dose.taken_at).toISOString() : null,
+      status: dose.status,
+    }));
 
     return res.json({ medications: formatted });
   } catch (err) {
