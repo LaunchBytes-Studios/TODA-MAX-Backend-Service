@@ -3,16 +3,15 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import type { Request, Response } from 'express';
 import type { MockInstance } from 'vitest';
 
-
 beforeAll(() => {
-  ((supabase.from as unknown as MockInstance).mockImplementation(() => ({
+  (supabase.from as unknown as MockInstance).mockImplementation(() => ({
     insert: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data: [{ id: 1, message: 'Hello world' }], error: null }),
     eq: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data: {}, error: null }),
-  })));
+  }));
 });
 
 vi.mock('../../../config/db', () => ({
