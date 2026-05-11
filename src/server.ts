@@ -8,6 +8,8 @@ import orderingRoutes from './routes/ordering.routes';
 import chatRoutes from './routes/chat.routes';
 import notificationsRoutes from './routes/notifications.routes';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -15,6 +17,8 @@ const PORT = Number(process.env.PORT) || 3000;
 /* -------------------------
    Middleware
 --------------------------*/
+app.set('trust proxy', 1);
+app.use(helmet());
 app.use(express.json());
 app.use(
   cors({
@@ -23,6 +27,25 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization'],
   }),
 );
+
+/* -------------------------
+   Rate Limiting
+--------------------------*/
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // limit each IP to 500 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(globalLimiter);
+const authLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5, // brute force protection
+});
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+});
 
 /* -------------------------
    Health check
@@ -36,12 +59,12 @@ app.get('/', (req: Request, res: Response) => {
 --------------------------*/
 app.use('/enavigator', enavRoutes);
 app.use('/patients', patientRoutes);
-app.use('/auth', enavRoutes);
+app.use('/auth', authLimiter, enavRoutes);
 app.use('/rewards', rewardRoutes);
 app.use('/medications', medicationRoutes);
 app.use('/orders', orderingRoutes);
 app.use('/trackedmedications', trackedMedicationRoutes);
-app.use('/chat', chatRoutes);
+app.use('/chat', chatLimiter, chatRoutes);
 app.use('/notifications', notificationsRoutes);
 
 /* -------------------------

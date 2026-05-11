@@ -4,9 +4,9 @@ import { Request, Response } from 'express';
 export const registerPushToken = async (req: Request, res: Response) => {
   const { token, deviceId, platform } = req.body;
 
-  if (!token) {
+  if (!token || !deviceId || !platform) {
     return res.status(400).json({
-      error: 'Token is required',
+      error: 'All fields are required',
     });
   }
 
@@ -17,8 +17,8 @@ export const registerPushToken = async (req: Request, res: Response) => {
       {
         token,
         user_id: null, // anonymous user
-        device_id: deviceId || null,
-        platform: platform || null,
+        device_id: deviceId,
+        platform: platform,
         created_at: now,
         updated_at: now,
         last_seen_at: now,
