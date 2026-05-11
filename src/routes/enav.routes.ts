@@ -4,7 +4,6 @@ import { authenticate } from '../middleware/enav.middleware';
 
 import { generateRegistrationCode } from '../controllers/registration/generateRegistrationCodes.controller';
 import { getRegistrationCode } from '../controllers/registration/getRegistrationCode.controller';
-import { maintenanceRegistrationCode } from '../controllers/registration/maintenanceRegistration.controller';
 import { makeAnnouncement } from '../controllers/announcement/postAnnouncement.controller';
 import { getAnnouncement } from '../controllers/announcement/getAnnouncement.controller';
 import { alertMedication } from '../controllers/medication/alertMedication.controller';
@@ -30,7 +29,6 @@ router.get('/me', authenticate, me);
 //eNav utility routes - Registration Codes
 router.post('/registrationCodes/generate', authenticate, generateRegistrationCode);
 router.get('/registrationCodes', authenticate, getRegistrationCode);
-router.post('/registrationCodes/maintenance', authenticate, maintenanceRegistrationCode);
 
 //eNav utility routes - Announcements
 router.post('/announcements', authenticate, makeAnnouncement);
