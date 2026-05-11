@@ -1,6 +1,9 @@
-// Robust supabase mock for chained methods
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
+import type { Request, Response } from 'express';
+
 beforeAll(() => {
-  (supabase.from as any).mockImplementation(() => ({
+  (supabase.from as unknown as MockInstance).mockImplementation(() => ({
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data: {}, error: null }),
@@ -9,9 +12,6 @@ beforeAll(() => {
     maybeSingle: vi.fn().mockResolvedValue({ data: {}, error: null }),
   }));
 });
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
-import type { Mock } from 'vitest';
-import type { Request, Response } from 'express';
 
 vi.mock('../../../config/db', () => ({
   supabase: { from: vi.fn() },
