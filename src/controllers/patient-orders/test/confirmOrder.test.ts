@@ -1,9 +1,28 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
 import type { Request, Response } from 'express';
+
+beforeAll(() => {
+  (supabase.from as unknown as MockInstance).mockImplementation(() => ({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: {}, error: null }),
+    insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  }));
+});
 
 vi.mock('../../../config/db', () => ({
   supabase: { from: vi.fn() },
+}));
+
+vi.mock('../../../utils/getUserPushTokens', () => ({
+  getUserPushTokens: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../../../utils/sendPushNotifications', () => ({
+  sendPushNotifications: vi.fn(),
 }));
 
 vi.mock('../../../utils/helpers', async () => {
@@ -33,7 +52,7 @@ describe('confirmOrder', () => {
     update: ReturnType<typeof vi.fn>;
     eq: ReturnType<typeof vi.fn>;
     select: ReturnType<typeof vi.fn>;
-    single: ReturnType<typeof vi.fn>;
+    maybeSingle: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -61,31 +80,22 @@ describe('confirmOrder', () => {
       update: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
-      single: vi.fn(),
+      maybeSingle: vi.fn(),
     };
 
-    (supabase.from as Mock).mockImplementation((table: string) => {
-      if (table !== 'Order') throw new Error(`Unexpected table: ${table}`);
-
-      if (orderUpdateQuery.update.mock.calls.length > 0) {
-        return orderUpdateQuery;
-      }
-
-      return {
-        select: orderFetchQuery.select,
-        eq: (...args: unknown[]) => {
-          new orderFetchQuery.eq(...args);
-          return orderFetchQuery;
-        },
-        single: orderFetchQuery.single,
-        update: orderUpdateQuery.update,
-      };
-    });
-
-    orderUpdateQuery.update.mockReturnValue(orderUpdateQuery);
+    (supabase.from as Mock).mockReturnValue(orderUpdateQuery);
   });
 
   it('returns 404 when order is not found', async () => {
+    (supabase.from as Mock)
+      .mockReturnValueOnce(orderUpdateQuery)
+      .mockReturnValueOnce(orderFetchQuery);
+
+    orderUpdateQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+
     orderFetchQuery.single.mockResolvedValue({
       data: null,
       error: { message: 'not found' },
@@ -101,6 +111,15 @@ describe('confirmOrder', () => {
   });
 
   it('returns 403 when order does not belong to the patient', async () => {
+    (supabase.from as Mock)
+      .mockReturnValueOnce(orderUpdateQuery)
+      .mockReturnValueOnce(orderFetchQuery);
+
+    orderUpdateQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+
     orderFetchQuery.single.mockResolvedValue({
       data: {
         order_id: 'order-1',
@@ -120,6 +139,15 @@ describe('confirmOrder', () => {
   });
 
   it('returns 400 when order status is not ready', async () => {
+    (supabase.from as Mock)
+      .mockReturnValueOnce(orderUpdateQuery)
+      .mockReturnValueOnce(orderFetchQuery);
+
+    orderUpdateQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+
     orderFetchQuery.single.mockResolvedValue({
       data: {
         order_id: 'order-1',
@@ -139,16 +167,7 @@ describe('confirmOrder', () => {
   });
 
   it('confirms the order successfully when status is ready', async () => {
-    orderFetchQuery.single.mockResolvedValue({
-      data: {
-        order_id: 'order-1',
-        patient_id: 'patient-123',
-        status: ORDER_STATUS.READY,
-      },
-      error: null,
-    });
-
-    orderUpdateQuery.single.mockResolvedValue({
+    orderUpdateQuery.maybeSingle.mockResolvedValue({
       data: {
         order_id: 'order-1',
         patient_id: 'patient-123',
@@ -180,16 +199,7 @@ describe('confirmOrder', () => {
   });
 
   it('returns wrapped 500 when updating the order fails', async () => {
-    orderFetchQuery.single.mockResolvedValue({
-      data: {
-        order_id: 'order-1',
-        patient_id: 'patient-123',
-        status: ORDER_STATUS.READY,
-      },
-      error: null,
-    });
-
-    orderUpdateQuery.single.mockResolvedValue({
+    orderUpdateQuery.maybeSingle.mockResolvedValue({
       data: null,
       error: { message: 'update failed' },
     });
