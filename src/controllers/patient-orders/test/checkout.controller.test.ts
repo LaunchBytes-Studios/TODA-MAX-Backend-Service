@@ -1,4 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+// Robust supabase mock for chained methods
+beforeAll(() => {
+  (supabase.from as any).mockImplementation(() => ({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: {}, error: null }),
+    insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  }));
+});
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import type { Mock } from 'vitest';
 import type { Request, Response } from 'express';
 
@@ -12,6 +23,14 @@ vi.mock('../../../services/ordering.service', () => ({
 
 vi.mock('../../../services/patientPoints.service', () => ({
   awardPatientPointsForEvent: vi.fn(),
+}));
+
+vi.mock('../../../utils/getUserPushTokens', () => ({
+  getUserPushTokens: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../../../utils/sendPushNotifications', () => ({
+  sendPushNotifications: vi.fn(),
 }));
 
 vi.mock('../../../utils/helpers', async () => {
@@ -87,7 +106,8 @@ describe('checkout', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
-      message: "delivery_type must be 'pickup' or 'delivery'",
+      message: 'Failed to create order',
+      error: "delivery_type must be 'pickup' or 'delivery'",
     });
   });
 
@@ -102,7 +122,8 @@ describe('checkout', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
-      message: 'items must be a non-empty array',
+      message: 'Failed to create order',
+      error: 'items must be a non-empty array',
     });
   });
 
@@ -117,7 +138,8 @@ describe('checkout', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
-      message: 'Invalid values at index 0',
+      message: 'Failed to create order',
+      error: 'Invalid values at index 0',
     });
   });
 
@@ -205,7 +227,8 @@ describe('checkout', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
-      message: 'Insufficient stock for medication ID 1. Available: 1, requested: 2',
+      message: 'Failed to create order',
+      error: 'Insufficient stock for medication ID 1. Available: 1, requested: 2',
     });
   });
 
@@ -233,7 +256,8 @@ describe('checkout', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
-      message:
+      message: 'Failed to create order',
+      error:
         'No address on file for this patient. Please update your profile before placing a delivery order.',
     });
   });
@@ -249,8 +273,8 @@ describe('checkout', () => {
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
-      message: 'Failed to fetch medication prices',
-      error: 'db failed',
+      message: 'Failed to create order',
+      error: 'Failed to fetch medication prices: db failed',
     });
   });
 

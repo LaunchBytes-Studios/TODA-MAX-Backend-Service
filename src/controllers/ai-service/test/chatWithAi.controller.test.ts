@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 import type { Request, Response } from 'express';
+import type { MockInstance } from 'vitest';
 
 interface SupabaseQueryMock {
   select: ReturnType<typeof vi.fn>;
@@ -26,6 +27,7 @@ vi.mock('../../../services/healthContent.service', () => ({
 }));
 vi.mock('../../../utils/helpers', () => ({
   requirePatientId: vi.fn(),
+  asyncHandler: (_name: string, fn: unknown) => fn,
 }));
 vi.mock('../sessionHelpers', () => ({
   fetchChatHistory: vi.fn(),
@@ -38,6 +40,19 @@ vi.mock('../sessionHelpers', () => ({
 import { chatWithAi } from '../chatWithAi.controller';
 import { supabase } from '../../../config/db';
 import { requirePatientId } from '../../../utils/helpers';
+// Robust supabase mock for chained methods
+beforeAll(() => {
+  (supabase.from as unknown as MockInstance).mockImplementation(() => ({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: {}, error: null }),
+    insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  }));
+});
 import {
   updateChatSession,
   assertChatOwnership,
@@ -72,6 +87,7 @@ describe('chatWithAi', () => {
     res = {
       status: vi.fn().mockReturnThis(),
       json: vi.fn(),
+      setHeader: vi.fn(),
     };
 
     setImmediateSpy = vi
