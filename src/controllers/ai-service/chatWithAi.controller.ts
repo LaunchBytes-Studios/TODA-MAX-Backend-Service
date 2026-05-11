@@ -5,7 +5,7 @@ import { supabase } from '../../config/db';
 import { z } from 'zod';
 import { requestAiReply } from '../../services/ai.service';
 import { getHealthContext } from '../../services/healthContent.service';
-import { requirePatientId } from '../../utils/helpers';
+import { asyncHandler, requirePatientId } from '../../utils/helpers';
 import {
   ChatHistoryItem,
   fetchChatHistory,
@@ -31,22 +31,78 @@ const chatSchema = z.object({
     .optional(),
 });
 
-export const chatWithAi = async (req: Request, res: Response): Promise<Response> => {
-  console.log('[chatWithAiHandler] Incoming request:', {
-    body: req.body,
-    patientId: req.user?.userId || req.headers['x-patient-id'] || null,
-  });
+// Generate a stable request ID for debugging across logs.
+const getRequestId = (value: unknown): string => {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+
+  if (Array.isArray(value) && typeof value[0] === 'string' && value[0].trim()) {
+    return value[0].trim();
+  }
+
+  return randomUUID();
+};
+
+const insertChatbotMessage = async (chatId: string, chatbotId: string, content: string) => {
+  const { data: chatbotMessage, error: chatbotMsgError } = await supabase
+    .from('ChatMessages')
+    .insert({
+      message_id: randomUUID(),
+      chat_id: chatId,
+      role: 'chatbot',
+      sender_id: chatbotId,
+      content,
+    })
+    .select()
+    .single();
+
+  if (chatbotMsgError) {
+    throw new Error(chatbotMsgError.message);
+  }
+
+  await updateChatSession(chatId, { last_message_at: chatbotMessage.created_at });
+  return chatbotMessage;
+};
+
+export const chatWithAi = asyncHandler('chatWithAi', async (req: Request, res: Response) => {
+  // Trace one chat request across the backend and AI service logs for debugging.
+  const requestId = getRequestId(req.headers['x-request-id']);
+  const debugEnabled =
+    process.env.AI_DEBUG_LOGS === 'true' || process.env.NODE_ENV !== 'production';
+  if (debugEnabled) {
+    console.log('[chatWithAiHandler] Incoming request:', {
+      requestId,
+      body: {
+        message: req.body?.message,
+        chat_id: req.body?.chat_id,
+        language: req.body?.language,
+        has_patient_context: Boolean(req.body?.patient_context),
+      },
+      patientId: req.user?.userId || req.headers['x-patient-id'] || null,
+    });
+  }
   const parsed = chatSchema.safeParse(req.body);
 
   if (!parsed.success) {
-    console.log('[chatWithAiHandler] Invalid request body:', req.body);
+    if (debugEnabled) {
+      console.log('[chatWithAiHandler] Invalid request body:', req.body);
+    }
     return res.status(400).json({ success: false, message: 'Invalid request body' });
   }
 
   const chatbotActiveEnv = process.env.CHATBOT_ACTIVE;
   const chatbotId = process.env.CHATBOT_ID;
   if (!chatbotId) throw new Error('Missing CHATBOT_ID');
-  console.log('[chatWithAiHandler] Parsed data:', parsed.data);
+  if (debugEnabled) {
+    console.log('[chatWithAiHandler] Parsed data:', {
+      requestId,
+      message: parsed.data.message,
+      chat_id: parsed.data.chat_id,
+      language: parsed.data.language,
+      has_patient_context: Boolean(parsed.data.patient_context),
+    });
+  }
   const patientId = requirePatientId(req);
   const { message, chat_id, language, patient_context } = parsed.data;
   const patientContext = await fetchPatientContext(patientId);
@@ -101,6 +157,7 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
   if (patientMsgError) throw new Error(patientMsgError.message);
 
   // Respond immediately to the client (do not wait for AI)
+  res.setHeader('x-request-id', requestId);
   res.status(200).json({
     success: true,
     data: {
@@ -109,13 +166,23 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
       chatbot_active: chatbotActive,
     },
   });
-  console.log('[chatWithAiHandler] Responded to client, starting AI background logic...');
+  if (debugEnabled) {
+    console.log('[chatWithAiHandler] Responded to client, starting AI background logic...', {
+      requestId,
+      chatId,
+    });
+  }
 
   // --- AI reply logic in background ---
 
   setImmediate(async () => {
     try {
-      console.log('[chatWithAiHandler] [AI background] Fetching chat history for chatId:', chatId);
+      if (debugEnabled) {
+        console.log(
+          '[chatWithAiHandler] [AI background] Fetching chat history for chatId:',
+          chatId,
+        );
+      }
       const history = await fetchChatHistory(chatId);
       const buildConversationQuery = (history: ChatHistoryItem[], latestMessage: string) =>
         [...history.map((item) => item.content), latestMessage.trim()].join(' ').trim();
@@ -126,28 +193,43 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
 
       let aiResponse;
       try {
-        console.log('[chatWithAiHandler] [AI background] Calling requestAiReply with:', {
-          message: message.trim(),
-          language,
-          historyLength: history.length,
-          health_context: trimmedHealthContext ? '[present]' : '[empty]',
-          patient_context: Object.keys(mergedPatientContext).length > 0 ? '[present]' : '[empty]',
-        });
-        aiResponse = await requestAiReply({
-          message: message.trim(),
-          language: language,
-          history,
-          health_context: trimmedHealthContext || undefined,
-          patient_context:
-            Object.keys(mergedPatientContext).length > 0 ? mergedPatientContext : undefined,
-        });
-        console.log('[chatWithAiHandler] [AI background] AI response:', aiResponse);
+        if (debugEnabled) {
+          console.log('[chatWithAiHandler] [AI background] Calling requestAiReply with:', {
+            requestId,
+            message: message.trim(),
+            language,
+            historyLength: history.length,
+            health_context: trimmedHealthContext ? '[present]' : '[empty]',
+            patient_context: Object.keys(mergedPatientContext).length > 0 ? '[present]' : '[empty]',
+          });
+        }
+        aiResponse = await requestAiReply(
+          {
+            message: message.trim(),
+            language: language,
+            history,
+            health_context: trimmedHealthContext || undefined,
+            request_id: requestId,
+            patient_context:
+              Object.keys(mergedPatientContext).length > 0 ? mergedPatientContext : undefined,
+          },
+          { requestId },
+        );
+        if (debugEnabled) {
+          console.log('[chatWithAiHandler] [AI background] AI response:', {
+            requestId,
+            chatbot_active: aiResponse.chatbot_active,
+            hasReply: Boolean(aiResponse.reply),
+          });
+        }
       } catch (error) {
-        console.error('[chatWithAiHandler] [AI background] Error calling requestAiReply:', error);
+        console.error('[chatWithAiHandler] [AI background] Error calling requestAiReply:', {
+          requestId,
+          error,
+        });
         if (axios.isAxiosError(error)) {
           const status = error.response?.status;
           if (status === 429 || status === 503) {
-            // Optionally: log or notify about quota exceeded or high demand
             return;
           }
         }
@@ -167,21 +249,7 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
         await updateChatSession(chatId, { chatbot_active: true });
       }
 
-      const { data: chatbotMessage, error: chatbotMsgError } = await supabase
-        .from('ChatMessages')
-        .insert({
-          message_id: randomUUID(),
-          chat_id: chatId,
-          role: 'chatbot',
-          sender_id: chatbotId,
-          content: aiResponse.reply,
-        })
-        .select()
-        .single();
-      if (chatbotMsgError) {
-        console.error('Failed to insert chatbot message:', chatbotMsgError);
-        return;
-      }
+      await insertChatbotMessage(chatId, chatbotId, aiResponse.reply);
 
       const tokens = await getUserPushTokens(patientId);
 
@@ -195,12 +263,10 @@ export const chatWithAi = async (req: Request, res: Response): Promise<Response>
         }).catch(console.error);
       }
 
-      await updateChatSession(chatId, { last_message_at: chatbotMessage.created_at });
-
       // The frontend will receive this new message via realtime updates
     } catch (err) {
-      console.error('Error in AI reply logic', err);
+      console.error('Error in AI reply logic', { requestId, err });
     }
   });
   return res;
-};
+});

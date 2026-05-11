@@ -12,6 +12,7 @@ export type AiChatRequest = {
   language?: string;
   history?: ChatHistoryItem[];
   health_context?: string;
+  request_id?: string;
   patient_context?: {
     name?: string;
     age?: number;
@@ -37,12 +38,16 @@ const getAiServiceConfig = () => {
   return { url, key, timeout };
 };
 
-export const requestAiReply = async (payload: AiChatRequest): Promise<AiChatResponse> => {
+export const requestAiReply = async (
+  payload: AiChatRequest,
+  options?: { requestId?: string },
+): Promise<AiChatResponse> => {
   const { url, key, timeout } = getAiServiceConfig();
 
   const response = await axios.post<AiChatResponse>(`${url}/chat`, payload, {
     headers: {
       'x-service-key': key,
+      ...(options?.requestId ? { 'x-request-id': options.requestId } : {}),
       'content-type': 'application/json',
     },
     timeout,
