@@ -86,10 +86,19 @@ const extractTextFromFile = async (filePath: string): Promise<string> => {
 };
 
 const loadHealthContent = async (): Promise<Chunk[]> => {
-  const dirEntries = await fs.readdir(HEALTH_CONTENT_DIR, { withFileTypes: true });
+  let dirEntries;
+  try {
+    dirEntries = await fs.readdir(HEALTH_CONTENT_DIR, { withFileTypes: true });
+  } catch (err) {
+    console.error(
+      `[healthContent] Failed to read health content dir: ${HEALTH_CONTENT_DIR}`,
+      err instanceof Error ? err.message : err,
+    );
+    return [];
+  }
   const files = dirEntries
     .filter((entry) => entry.isFile())
-    .map((entry) => path.join(HEALTH_CONTENT_DIR, entry.name));
+    .map((entry) => path.join(HEALTH_CONTENT_DIR, entry.name.toString()));
 
   const chunks: Chunk[] = [];
 
