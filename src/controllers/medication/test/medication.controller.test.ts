@@ -76,7 +76,7 @@ describe('medication controller', () => {
       stock_qty: 100,
       threshold_qty: 20,
       description: 'Pain relief',
-      dosage: 500,
+      dosage: '500 mg',
       enav_id: 'enav-1',
     };
     mockedCreateMedicationService.mockResolvedValue(medication);
@@ -181,7 +181,7 @@ describe('medication controller', () => {
       type: 'Tablet',
       stock_qty: 100,
       threshold_qty: 20,
-      dosage: 750,
+      dosage: '750',
     });
 
     await updateMedication(req as Request, res as Response);
@@ -189,7 +189,7 @@ describe('medication controller', () => {
     expect(mockedUpdateMedicationService).toHaveBeenCalledWith(1, {
       name: 'Aspirin Plus',
       price: 12.5,
-      dosage: 750,
+      dosage: '750',
     });
     expect(res.json).toHaveBeenCalledWith({
       success: true,
