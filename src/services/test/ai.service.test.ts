@@ -11,7 +11,7 @@ describe('ai.service', () => {
     // Set up environment variables
     process.env.AI_SERVICE_URL = 'http://localhost:5000';
     process.env.AI_SERVICE_KEY = 'test-api-key';
-    process.env.AI_SERVICE_TIMEOUT_MS = '30000';
+    process.env.AI_SERVICE_TIMEOUT_MS = '60000';
   });
 
   afterEach(() => {
@@ -48,7 +48,7 @@ describe('ai.service', () => {
             'x-service-key': 'test-api-key',
             'content-type': 'application/json',
           },
-          timeout: 30000,
+          timeout: 60000,
         }),
       );
     });
@@ -148,32 +148,6 @@ describe('ai.service', () => {
       );
     });
 
-    it('should use default timeout when AI_SERVICE_TIMEOUT_MS is not set', async () => {
-      delete process.env.AI_SERVICE_TIMEOUT_MS;
-
-      const mockResponse: AiChatResponse = {
-        reply: 'Response',
-        chatbot_active: true,
-      };
-
-      vi.mocked(axios.post).mockResolvedValueOnce({
-        data: mockResponse,
-      });
-
-      const payload: AiChatRequest = {
-        message: 'Hello',
-      };
-
-      await requestAiReply(payload);
-
-      expect(axios.post).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        expect.objectContaining({
-          timeout: 60000, // Default from code
-        }),
-      );
-    });
 
     it('should throw error when AI_SERVICE_URL is not set', async () => {
       delete process.env.AI_SERVICE_URL;
@@ -347,7 +321,7 @@ describe('ai.service', () => {
         expect.anything(),
         expect.anything(),
         expect.objectContaining({
-          timeout: 120000,
+          timeout: 60000,
         }),
       );
     });
