@@ -97,15 +97,10 @@ const getValidatedCheckoutItems = async (
       );
     }
 
-    const price = medication.price;
-    if (price == null) {
-      throw new HttpError(400, 'One or more medications have no price');
-    }
-
     return {
       medication_id: item.medication_id,
       quantity: item.quantity,
-      price,
+      price: medication.price as number,
     };
   });
 };
