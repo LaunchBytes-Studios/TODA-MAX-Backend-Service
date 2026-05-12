@@ -40,7 +40,6 @@ describe('getPatientOrders', () => {
       json: vi.fn(),
     };
 
-
     orderQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),

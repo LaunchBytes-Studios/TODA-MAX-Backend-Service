@@ -148,7 +148,6 @@ describe('ai.service', () => {
       );
     });
 
-
     it('should throw error when AI_SERVICE_URL is not set', async () => {
       delete process.env.AI_SERVICE_URL;
 
