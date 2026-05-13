@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { supabase } from '../../config/db';
 import bcrypt from 'bcrypt';
 
-// src/controllers/patient/updatePin.ts
 export const updatePin = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { currentPin, newPin } = req.body;
