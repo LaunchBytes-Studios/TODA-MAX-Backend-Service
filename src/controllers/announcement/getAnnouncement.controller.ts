@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 
 export const getAnnouncement = async (req: Request, res: Response) => {
   // Example: filter by announce_id if provided
-  const announce_id = req.query.announce_id as string | undefined;
+  const announce_id = req.query.announce_id as string;
   try {
     let query = supabase.from('Announcement').select('*');
 

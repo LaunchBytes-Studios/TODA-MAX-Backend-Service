@@ -14,7 +14,7 @@ router.get('/', authenticatePatient, getTrackedMedications);
 router.get('/daily', authenticatePatient, getDailyMedications);
 router.get('/calendar', authenticatePatient, getMedicationCalendar);
 router.post('/create', authenticatePatient, createTrackedMedication);
-router.patch('/dose/:doseId/toggle', authenticatePatient, toggleDayDose);
+router.patch('/dose/:doseId', authenticatePatient, toggleDayDose);
 router.patch('/:id', authenticatePatient, updateTrackedMedication);
 router.delete('/:id', authenticatePatient, deleteTrackedMedication);
 

@@ -6,7 +6,7 @@ export interface Medication {
   stock_qty: number;
   threshold_qty?: number;
   enav_id?: string;
-  dosage?: number;
+  dosage?: string | null;
   created_at?: string;
   description?: string;
 }
@@ -17,7 +17,7 @@ export interface CreateMedicationDTO {
   type: string;
   stock_qty: number;
   threshold_qty?: number;
-  dosage?: number;
+  dosage?: string | null;
   enav_id?: string;
   description?: string;
 }
@@ -28,7 +28,7 @@ export interface UpdateMedicationDTO {
   type?: string;
   stock_qty?: number;
   threshold_qty?: number;
-  dosage?: number;
+  dosage?: string | null;
   enav_id?: string;
   description?: string;
 }

@@ -26,7 +26,7 @@ export const createMedication = async (req: Request, res: Response) => {
       stock_qty: parseInt(req.body.stock_qty) || 0,
       threshold_qty: parseInt(req.body.threshold_qty) || 10,
       description: req.body.description ?? null,
-      dosage: req.body.dosage ? parseInt(req.body.dosage) : 0,
+      dosage: req.body.dosage ?? null,
       enav_id: req.body.enav_id || null,
     };
 
@@ -116,18 +116,35 @@ export const updateMedication = async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
 
-    // Prepare update data
+    // Prepare update data with validation for numeric fields
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: any = {};
     if (req.body.name !== undefined) updateData.name = req.body.name;
-    if (req.body.price !== undefined) updateData.price = parseFloat(req.body.price);
+    if (req.body.price !== undefined) {
+      const parsedPrice = Number(req.body.price);
+      if (Number.isNaN(parsedPrice)) {
+        return res.status(400).json({ success: false, message: 'Invalid price value' });
+      }
+      updateData.price = parsedPrice;
+    }
     if (req.body.type !== undefined) updateData.type = req.body.type;
-    if (req.body.stock_qty !== undefined) updateData.stock_qty = parseInt(req.body.stock_qty);
-    if (req.body.threshold_qty !== undefined)
-      updateData.threshold_qty = parseInt(req.body.threshold_qty);
+    if (req.body.stock_qty !== undefined) {
+      const parsedStock = Number(req.body.stock_qty);
+      if (Number.isNaN(parsedStock)) {
+        return res.status(400).json({ success: false, message: 'Invalid stock_qty value' });
+      }
+      updateData.stock_qty = parsedStock;
+    }
+    if (req.body.threshold_qty !== undefined) {
+      const parsedThreshold = Number(req.body.threshold_qty);
+      if (Number.isNaN(parsedThreshold)) {
+        return res.status(400).json({ success: false, message: 'Invalid threshold_qty value' });
+      }
+      updateData.threshold_qty = parsedThreshold;
+    }
     if (req.body.enav_id !== undefined) updateData.enav_id = req.body.enav_id;
     if (req.body.description !== undefined) updateData.description = req.body.description;
-    if (req.body.dosage !== undefined) updateData.dosage = parseInt(req.body.dosage);
+    if (req.body.dosage !== undefined) updateData.dosage = req.body.dosage;
 
     const updatedMedication = await updateMedicationService(id, updateData);
 

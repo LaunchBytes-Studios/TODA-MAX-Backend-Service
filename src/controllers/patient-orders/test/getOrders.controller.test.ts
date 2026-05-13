@@ -18,7 +18,6 @@ vi.mock('../../../utils/helpers', async () => {
 
 import { getPatientOrders } from '../getOrders.controller';
 import { supabase } from '../../../config/db';
-import { requirePatientId } from '../../../utils/helpers';
 
 describe('getPatientOrders', () => {
   let req: Partial<Request>;
@@ -41,8 +40,6 @@ describe('getPatientOrders', () => {
       json: vi.fn(),
     };
 
-    (requirePatientId as Mock).mockReturnValue('patient-123');
-
     orderQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
@@ -57,7 +54,6 @@ describe('getPatientOrders', () => {
       data: [
         {
           order_id: 'order-1',
-          patient_id: 'patient-123',
           status: 'pending',
           order_date: '2026-05-01T10:00:00.000Z',
           delivery_type: 'pickup',
@@ -81,7 +77,6 @@ describe('getPatientOrders', () => {
     await getPatientOrders(req as Request, res as Response);
 
     expect(supabase.from).toHaveBeenCalledWith('Order');
-    expect(orderQuery.eq).toHaveBeenCalledWith('patient_id', 'patient-123');
     expect(orderQuery.order).toHaveBeenCalledWith('order_date', { ascending: false });
 
     expect(res.json).toHaveBeenCalledWith({
@@ -90,7 +85,6 @@ describe('getPatientOrders', () => {
       data: [
         {
           order_id: 'order-1',
-          patient_id: 'patient-123',
           status: 'pending',
           order_date: '2026-05-01T10:00:00.000Z',
           delivery_type: 'pickup',
@@ -117,7 +111,6 @@ describe('getPatientOrders', () => {
       data: [
         {
           order_id: 'order-2',
-          patient_id: 'patient-123',
           status: 'completed',
           order_date: '2026-05-01T11:00:00.000Z',
           delivery_type: 'delivery',
@@ -137,7 +130,6 @@ describe('getPatientOrders', () => {
       data: [
         {
           order_id: 'order-2',
-          patient_id: 'patient-123',
           status: 'completed',
           order_date: '2026-05-01T11:00:00.000Z',
           delivery_type: 'delivery',

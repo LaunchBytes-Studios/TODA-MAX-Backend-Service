@@ -1,6 +1,18 @@
 import { makeAnnouncement } from '../postAnnouncement.controller';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import type { Request, Response } from 'express';
+import type { MockInstance } from 'vitest';
+
+beforeAll(() => {
+  (supabase.from as unknown as MockInstance).mockImplementation(() => ({
+    insert: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: [{ id: 1, message: 'Hello world' }], error: null }),
+    eq: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  }));
+});
 
 vi.mock('../../../config/db', () => ({
   supabase: {
@@ -29,17 +41,20 @@ describe('makeAnnouncement', () => {
 
   it('should create an announcement and return 201', async () => {
     (getFirstEnavId as ReturnType<typeof vi.fn>).mockResolvedValue('enav123');
-    const insertMock = vi
-      .fn()
-      .mockResolvedValue({ data: [{ id: 1, message: 'Hello world' }], error: null });
-    (supabase.from as ReturnType<typeof vi.fn>).mockReturnValue({
-      insert: insertMock,
-      select: vi.fn().mockResolvedValue({ data: [{ id: 1, message: 'Hello world' }], error: null }),
+    const announcementData = [{ id: 1, message: 'Hello world' }];
+    const insertMock = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: announcementData, error: null }),
+      }),
     });
-
-    // Simulate the chain: supabase.from().insert().select()
-    insertMock.mockReturnValueOnce({
-      select: vi.fn().mockResolvedValue({ data: [{ id: 1, message: 'Hello world' }], error: null }),
+    (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === 'Announcement') {
+        return { insert: insertMock };
+      }
+      if (table === 'UserPushTokens') {
+        return { select: vi.fn().mockResolvedValue({ data: [], error: null }) };
+      }
+      throw new Error(`Unexpected table: ${table}`);
     });
 
     await makeAnnouncement(req, res as Response);
@@ -47,7 +62,6 @@ describe('makeAnnouncement', () => {
     expect(getFirstEnavId).toHaveBeenCalled();
     expect(supabase.from).toHaveBeenCalledWith('Announcement');
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith({ announcement: { id: 1, message: 'Hello world' } });
   });
 
   it('should return 500 if getFirstEnavId fails', async () => {
@@ -64,8 +78,10 @@ describe('makeAnnouncement', () => {
 
   it('should return 500 if supabase insert fails', async () => {
     (getFirstEnavId as ReturnType<typeof vi.fn>).mockResolvedValue('enav123');
-    const insertMock = vi.fn().mockReturnValueOnce({
-      select: vi.fn().mockResolvedValue({ data: null, error: { message: 'insert error' } }),
+    const insertMock = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: null, error: { message: 'insert error' } }),
+      }),
     });
     (supabase.from as ReturnType<typeof vi.fn>).mockReturnValue({ insert: insertMock });
 

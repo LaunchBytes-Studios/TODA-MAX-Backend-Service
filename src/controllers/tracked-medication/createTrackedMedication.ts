@@ -46,6 +46,7 @@ export const createTrackedMedication = async (req: Request, res: Response) => {
     return res.json({
       success: true,
       message: `Successfully added a new tracked medication for ${patientId}`,
+      medication: medication,
     });
   } catch (err) {
     console.error(err);

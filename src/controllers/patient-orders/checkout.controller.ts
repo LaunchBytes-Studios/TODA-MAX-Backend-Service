@@ -1,119 +1,163 @@
 import { supabase } from '../../config/db';
 import { createOrderService } from '../../services/ordering.service';
 import { awardPatientPointsForEvent } from '../../services/patientPoints.service';
-import { asyncHandler, requirePatientId, sumItemQuantities } from '../../utils/helpers';
+import { asyncHandler, HttpError, requirePatientId, sumItemQuantities } from '../../utils/helpers';
 import { getUserPushTokens } from '../../utils/getUserPushTokens';
 import { sendPushNotifications } from '../../utils/sendPushNotifications';
 
-export const checkout = asyncHandler('Failed to create order', async (req, res) => {
-  const patientId = requirePatientId(req);
+interface ParsedCheckoutItem {
+  medication_id: number;
+  quantity: number;
+}
 
-  if (req.body.delivery_type !== 'pickup' && req.body.delivery_type !== 'delivery') {
-    return res
-      .status(400)
-      .json({ success: false, message: "delivery_type must be 'pickup' or 'delivery'" });
+interface MedicationPricingRow {
+  medication_id: number;
+  price: number | null;
+  stock_qty: number | null;
+}
+
+const getDeliveryType = (value: unknown): 'delivery' | 'pickup' => {
+  if (value !== 'pickup' && value !== 'delivery') {
+    throw new HttpError(400, "delivery_type must be 'pickup' or 'delivery'");
   }
-  const deliveryType = req.body.delivery_type as 'delivery' | 'pickup';
 
-  if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
-    return res.status(400).json({ success: false, message: 'items must be a non-empty array' });
+  return value;
+};
+
+const parseCheckoutItems = (items: unknown): ParsedCheckoutItem[] => {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new HttpError(400, 'items must be a non-empty array');
   }
 
-  const rawParsedItems: Array<{ medication_id: number; quantity: number }> = [];
-  for (const [index, raw] of req.body.items.entries()) {
-    if (raw.medication_id == null || raw.quantity == null) {
-      return res.status(400).json({ success: false, message: `Missing fields at index ${index}` });
+  const aggregatedMap = new Map<number, number>();
+
+  for (const [index, raw] of items.entries()) {
+    if (
+      typeof raw !== 'object' ||
+      raw === null ||
+      !('medication_id' in raw) ||
+      !('quantity' in raw)
+    ) {
+      throw new HttpError(400, `Missing fields at index ${index}`);
     }
+
     const medication_id = Number(raw.medication_id);
     const quantity = Number(raw.quantity);
+
     if (!Number.isInteger(medication_id) || !Number.isInteger(quantity) || quantity <= 0) {
-      return res.status(400).json({ success: false, message: `Invalid values at index ${index}` });
+      throw new HttpError(400, `Invalid values at index ${index}`);
     }
-    rawParsedItems.push({ medication_id, quantity });
+
+    aggregatedMap.set(medication_id, (aggregatedMap.get(medication_id) ?? 0) + quantity);
   }
 
-  // Aggregate quantities per medication_id so duplicate entries cannot bypass stock validation
-  const aggregatedMap = new Map<number, number>();
-  for (const item of rawParsedItems) {
-    aggregatedMap.set(
-      item.medication_id,
-      (aggregatedMap.get(item.medication_id) ?? 0) + item.quantity,
-    );
-  }
-  const parsedItems = Array.from(aggregatedMap.entries()).map(([medication_id, quantity]) => ({
+  return Array.from(aggregatedMap.entries()).map(([medication_id, quantity]) => ({
     medication_id,
     quantity,
   }));
+};
 
-  // prices and stock come from DB, not the client
-  const uniqueIds = [...new Set(parsedItems.map((i) => i.medication_id))];
-  const { data: medications, error: medErr } = await supabase
+const getValidatedCheckoutItems = async (
+  parsedItems: ParsedCheckoutItem[],
+): Promise<Array<{ medication_id: number; quantity: number; price: number }>> => {
+  const medicationIds = parsedItems.map((item) => item.medication_id);
+  const { data: medications, error } = await supabase
     .from('Medication')
     .select('medication_id, price, stock_qty')
-    .in('medication_id', uniqueIds);
+    .in('medication_id', medicationIds);
 
-  if (medErr) {
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch medication prices',
-      error: medErr.message,
+  if (error) {
+    throw new HttpError(500, `Failed to fetch medication prices: ${error.message}`);
+  }
+
+  if (!medications || medications.length !== medicationIds.length) {
+    throw new HttpError(400, 'One or more medication_ids are invalid');
+  }
+
+  const medicationMap = new Map<number, MedicationPricingRow>();
+  for (const medication of medications as MedicationPricingRow[]) {
+    if (medication.price == null) {
+      throw new HttpError(400, 'One or more medications have no price');
+    }
+    medicationMap.set(medication.medication_id, medication);
+  }
+
+  return parsedItems.map((item) => {
+    const medication = medicationMap.get(item.medication_id);
+
+    if (!medication) {
+      throw new HttpError(400, 'One or more medication_ids are invalid');
+    }
+
+    const availableStock = medication.stock_qty ?? 0;
+    if (availableStock < item.quantity) {
+      throw new HttpError(
+        400,
+        `Insufficient stock for medication ID ${item.medication_id}. Available: ${availableStock}, requested: ${item.quantity}`,
+      );
+    }
+
+    return {
+      medication_id: item.medication_id,
+      quantity: item.quantity,
+      price: medication.price as number,
+    };
+  });
+};
+
+const getPatientDeliveryAddress = async (patientId: string): Promise<string> => {
+  const { data: patient, error } = await supabase
+    .from('Patient')
+    .select('address')
+    .eq('patient_id', patientId)
+    .single();
+
+  if (error || !patient?.address) {
+    throw new HttpError(
+      400,
+      'No address on file for this patient. Please update your profile before placing a delivery order.',
+    );
+  }
+
+  return patient.address as string;
+};
+
+const awardOrderPlacementPoints = async (patientId: string, orderId: string) => {
+  try {
+    return await awardPatientPointsForEvent({
+      patientId,
+      eventType: 'order_placement',
+      sourceId: orderId,
     });
+  } catch (pointsError) {
+    console.error('Failed to award order placement points:', pointsError);
+    return null;
   }
-  if (!medications || medications.length !== uniqueIds.length) {
-    return res
-      .status(400)
-      .json({ success: false, message: 'One or more medication_ids are invalid' });
-  }
+};
 
-  const priceMap = new Map<number, number>();
-  const stockMap = new Map<number, number>();
-  for (const m of medications as Array<{
-    medication_id: number;
-    price: number;
-    stock_qty: number;
-  }>) {
-    if (m.price == null) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'One or more medications have no price' });
-    }
-    priceMap.set(m.medication_id, m.price);
-    stockMap.set(m.medication_id, m.stock_qty ?? 0);
+const notifyOrderPlaced = async (patientId: string, orderId: string) => {
+  const tokens = await getUserPushTokens(patientId);
+
+  if (tokens.length === 0) {
+    return;
   }
 
-  for (const item of parsedItems) {
-    const available = stockMap.get(item.medication_id) ?? 0;
-    if (available < item.quantity) {
-      return res.status(400).json({
-        success: false,
-        message: `Insufficient stock for medication ID ${item.medication_id}. Available: ${available}, requested: ${item.quantity}`,
-      });
-    }
-  }
+  sendPushNotifications(
+    tokens,
+    'Order Placed',
+    `Your order #${orderId} has been placed successfully.`,
+    { type: 'order', id: orderId },
+  ).catch(console.error);
+};
 
-  const itemsWithPrices = parsedItems.map((i) => ({
-    medication_id: i.medication_id,
-    quantity: i.quantity,
-    price: priceMap.get(i.medication_id)!,
-  }));
+export const checkout = asyncHandler('Failed to create order', async (req, res) => {
+  const patientId = requirePatientId(req);
+  const deliveryType = getDeliveryType(req.body.delivery_type);
+  const parsedItems = parseCheckoutItems(req.body.items);
+  const itemsWithPrices = await getValidatedCheckoutItems(parsedItems);
 
-  let deliveryAddress: string | undefined;
-  if (deliveryType === 'delivery') {
-    const { data: patient, error: patientErr } = await supabase
-      .from('Patient')
-      .select('address')
-      .eq('patient_id', patientId)
-      .single();
-
-    if (patientErr || !patient?.address) {
-      return res.status(400).json({
-        success: false,
-        message:
-          'No address on file for this patient. Please update your profile before placing a delivery order.',
-      });
-    }
-    deliveryAddress = patient.address as string;
-  }
+  const deliveryAddress =
+    deliveryType === 'delivery' ? await getPatientDeliveryAddress(patientId) : undefined;
 
   const result = await createOrderService(patientId, {
     delivery_type: deliveryType,
@@ -121,28 +165,8 @@ export const checkout = asyncHandler('Failed to create order', async (req, res) 
     delivery_address: deliveryAddress,
   });
 
-  let pointsAward: Awaited<ReturnType<typeof awardPatientPointsForEvent>> | null = null;
-
-  try {
-    pointsAward = await awardPatientPointsForEvent({
-      patientId,
-      eventType: 'order_placement',
-      sourceId: result.order.order_id,
-    });
-  } catch (pointsError) {
-    console.error('Failed to award order placement points:', pointsError);
-  }
-
-  const tokens = await getUserPushTokens(patientId);
-
-  if (tokens.length > 0) {
-    sendPushNotifications(
-      tokens,
-      'Order Placed',
-      `Your order #${result.order.order_id} has been placed successfully.`,
-      { type: 'order', id: result.order.order_id },
-    ).catch(console.error);
-  }
+  const pointsAward = await awardOrderPlacementPoints(patientId, result.order.order_id);
+  await notifyOrderPlaced(patientId, result.order.order_id);
 
   return res.status(201).json({
     success: true,

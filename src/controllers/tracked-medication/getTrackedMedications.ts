@@ -22,7 +22,7 @@ export const getTrackedMedications = async (req: Request, res: Response) => {
         quantity,
         medication_id,
         is_active,
-        schedules:TrackedMedicationSchedule(time)
+        schedules:TrackedMedicationSchedule(*)
       `,
       )
       .eq('patient_id', patientId)
@@ -31,22 +31,18 @@ export const getTrackedMedications = async (req: Request, res: Response) => {
 
     if (error) throw error;
 
-    const medications: TrackedMedicationDTO[] =
-      data?.map((med) => ({
-        id: med.id,
-        name: med.name,
-        dosage: med.dosage,
-        type: med.type,
-        quantity: med.quantity,
-        medication_id: med.medication_id,
-        is_active: med.is_active,
+    const medications: TrackedMedicationDTO[] = data?.map((med) => ({
+      id: med.id,
+      name: med.name,
+      dosage: med.dosage,
+      type: med.type,
+      quantity: med.quantity,
+      medication_id: med.medication_id,
+      is_active: med.is_active,
 
-        // schedule objects → sorted time array
-        schedules: (med.schedules ?? [])
-          .map((s) => s.time)
-          .filter((t): t is string => Boolean(t))
-          .sort((a, b) => a.localeCompare(b)),
-      })) ?? [];
+      // schedule objects → sorted time array
+      schedules: med.schedules ?? [],
+    }));
 
     return res.json({ medications });
   } catch (err) {

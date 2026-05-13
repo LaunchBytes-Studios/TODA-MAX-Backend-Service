@@ -13,9 +13,14 @@ export const toggleDayDose = async (req: Request, res: Response) => {
   try {
     const patientId = req.user?.userId;
     const { doseId } = req.params;
+    const { status } = req.body;
 
     if (!patientId) {
       return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!status) {
+      return res.status(400).json({ error: 'Missing new status state' });
     }
 
     /**
@@ -47,8 +52,9 @@ export const toggleDayDose = async (req: Request, res: Response) => {
     /**
      * STEP 3 — Toggle dose safely (DB handles quantity + activation)
      */
-    const { data: result, error: rpcError } = await supabase.rpc('toggle_day_dose_safe', {
+    const { data: result, error: rpcError } = await supabase.rpc('set_day_dose_status', {
       p_dose_id: doseId,
+      p_status: status,
     });
 
     if (rpcError) {

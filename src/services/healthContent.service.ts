@@ -13,8 +13,7 @@ const DEFAULT_CHUNK_SIZE = 600;
 const DEFAULT_CHUNK_OVERLAP = 80;
 const DEFAULT_LIMIT = 2;
 
-const HEALTH_CONTENT_DIR =
-  process.env.HEALTH_CONTENT_DIR ?? path.resolve(process.cwd(), 'health-content');
+const HEALTH_CONTENT_DIR = path.resolve(process.cwd(), 'health-content');
 
 let cachedChunks: Chunk[] | null = null;
 let loadingPromise: Promise<Chunk[]> | null = null;
@@ -86,10 +85,19 @@ const extractTextFromFile = async (filePath: string): Promise<string> => {
 };
 
 const loadHealthContent = async (): Promise<Chunk[]> => {
-  const dirEntries = await fs.readdir(HEALTH_CONTENT_DIR, { withFileTypes: true });
+  let dirEntries;
+  try {
+    dirEntries = await fs.readdir(HEALTH_CONTENT_DIR, { withFileTypes: true });
+  } catch (err) {
+    console.error(
+      `[healthContent] Failed to read health content dir: ${HEALTH_CONTENT_DIR}`,
+      err instanceof Error ? err.message : err,
+    );
+    return [];
+  }
   const files = dirEntries
     .filter((entry) => entry.isFile())
-    .map((entry) => path.join(HEALTH_CONTENT_DIR, entry.name));
+    .map((entry) => path.join(HEALTH_CONTENT_DIR, entry.name.toString()));
 
   const chunks: Chunk[] = [];
 
@@ -136,15 +144,6 @@ const getChunks = async (): Promise<Chunk[]> => {
   }
 
   return loadingPromise;
-};
-
-/**
- * Reload and clear cached health content.
- * Useful for testing or when health content files are updated.
- */
-export const reloadHealthContent = async (): Promise<void> => {
-  cachedChunks = null;
-  loadingPromise = null;
 };
 
 export const getHealthContext = async (query: string, limit = DEFAULT_LIMIT) => {
